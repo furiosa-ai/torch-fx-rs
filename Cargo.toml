@@ -1,0 +1,15 @@
+[package]
+name = "torch-fx-rs"
+version = "0.1.0"
+authors = ["FuriosaAI, Inc."]
+description = "Rust APIs to handle PyTorch graph modules and graphs"
+categories = ["api-bindings"]
+readme = "README.md"
+keywords = ["PyTorch", "torch", "graph", "API", "binding"]
+repository = "https://github.com/furiosa-ai/torch-fx-rs"
+edition = "2021"
+
+[dependencies]
+indexmap = "1.9.2"
+pyo3 = "0.19.1"
+tracing = "0.1.37"
