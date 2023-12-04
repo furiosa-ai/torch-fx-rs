@@ -21,7 +21,7 @@ jobs:
         cargo fmt -- --check
         cargo clippy --all-targets -- --deny warnings
     - name: Set up python 3.8
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
     - name: Install Python dependencies
