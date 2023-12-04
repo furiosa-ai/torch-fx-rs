@@ -430,17 +430,21 @@ impl Graph {
     /// If this process fails, returns `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
     pub fn lookup_node<S: AsRef<str>>(&self, name: S) -> PyResult<Option<&Node>> {
-        let nodes = self.nodes()?;
-        let mut found = None;
-        for node in nodes {
-            let node = node?;
-            let n: String = node.getattr("name")?.extract()?;
-            if n == name.as_ref() {
-                found = Some(node.downcast()?);
-                break;
-            }
-        }
-        Ok(found)
+        let mut nodes = self.nodes()?;
+        nodes
+            .find_map(|node| {
+                (|| {
+                    let node = node?;
+                    let n: String = node.getattr("name")?.extract()?;
+                    Ok(if n == name.as_ref() {
+                        Some(node.downcast::<Node>()?)
+                    } else {
+                        None
+                    })
+                })()
+                .transpose()
+            })
+            .transpose()
     }
 
     fn argument_into_py(&self, py: Python<'_>, arg: Argument) -> PyResult<PyObject> {
