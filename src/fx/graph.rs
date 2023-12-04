@@ -8,7 +8,7 @@ use pyo3::{
     Python, ToPyObject,
 };
 
-use crate::fx2::{custom_fn::CustomFn, node::Node, Argument, Op, Target};
+use crate::fx::{custom_fn::CustomFn, node::Node, Argument, Op, Target};
 
 /// A wrapper for PyTorch's [`Graph`][graph] class.
 ///

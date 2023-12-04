@@ -6,7 +6,7 @@ use pyo3::{
     Python, ToPyObject,
 };
 
-use crate::fx2::graph::Graph;
+use crate::fx::graph::Graph;
 
 /// A wrapper for PyTorch's [`GraphModule`][graphmodule] class.
 ///

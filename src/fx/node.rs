@@ -5,7 +5,7 @@ use pyo3::{
     Python, ToPyObject,
 };
 
-use crate::fx2::{Argument, Op, Target, TensorMeta};
+use crate::fx::{Argument, Op, Target, TensorMeta};
 
 /// A wrapper for PyTorch's [`Node`][node] class.
 ///
