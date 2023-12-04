@@ -120,24 +120,6 @@ impl GraphModule {
         Ok(gm.downcast()?)
     }
 
-    fn extract_slices(dict: &PyDict) -> PyResult<HashMap<String, &'static [u8]>> {
-        dict.into_iter()
-            .map(|(k, v)| {
-                let key = k.extract::<String>()?;
-                let offset = v.getattr("storage_offset")?.call0()?.extract::<usize>()?
-                    * v.getattr("element_size")?.call0()?.extract::<usize>()?;
-                let storage = v.getattr("untyped_storage")?.call0()?;
-                let ptr = storage.getattr("data_ptr")?.call0()?.extract::<usize>()? + offset;
-                let len = storage.getattr("nbytes")?.call0()?.extract::<usize>()? - offset;
-                Ok((key, unsafe { slice::from_raw_parts(ptr as *const u8, len) }))
-            })
-            .collect()
-    }
-
-    fn parameters(&self) -> PyResult<HashMap<String, &[u8]>> {
-        Self::extract_slices(self.deref().getattr("_parameters")?.downcast::<PyDict>()?)
-    }
-
     /// Collect all buffers of this `GraphModule`.
     ///
     /// Make a `HashMap` which maps the buffer name
@@ -147,7 +129,10 @@ impl GraphModule {
     /// Otherwise, return `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
     pub fn buffers(&self) -> PyResult<HashMap<String, &[u8]>> {
-        Self::extract_slices(self.deref().getattr("_buffers")?.downcast::<PyDict>()?)
+        self.get_buffers_pydict()?
+            .into_iter()
+            .map(|(k, v)| Ok((k.extract::<String>()?, value_to_slice(v)?)))
+            .collect()
     }
 
     /// Retrieve the `graph` attribute of this `GraphModule`.
@@ -169,7 +154,12 @@ impl GraphModule {
     /// If this process fails, returns `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
     pub fn get_parameter(&self, name: &str) -> PyResult<Option<&[u8]>> {
-        Ok(self.parameters()?.get(name).copied())
+        let found = self.get_parameters_pydict()?.get_item_with_error(name)?;
+        Ok(if let Some(v) = found {
+            Some(value_to_slice(v)?)
+        } else {
+            None
+        })
     }
 
     /// Get the number of parameters of this `GraphModule`.
@@ -180,7 +170,7 @@ impl GraphModule {
     /// Otherwise, returns `Ok` with
     /// the number of parameters of this `GraphModule` in it.
     pub fn count_parameters(&self) -> PyResult<usize> {
-        Ok(self.parameters()?.len())
+        Ok(self.get_parameters_pydict()?.len())
     }
 
     /// Get the underlying storage of the buffer value named as the value of `name`,
@@ -192,7 +182,12 @@ impl GraphModule {
     /// If this process fails, returns `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
     pub fn get_buffer(&self, name: &str) -> PyResult<Option<&[u8]>> {
-        Ok(self.buffers()?.get(name).copied())
+        let found = self.get_buffers_pydict()?.get_item_with_error(name)?;
+        Ok(if let Some(v) = found {
+            Some(value_to_slice(v)?)
+        } else {
+            None
+        })
     }
 
     /// Get the number of buffers of this `GraphModule`.
@@ -203,7 +198,7 @@ impl GraphModule {
     /// Otherwise, returns `Ok` with
     /// the number of parameters of this `GraphModule` in it.
     pub fn count_buffers(&self) -> PyResult<usize> {
-        Ok(self.buffers()?.len())
+        Ok(self.get_buffers_pydict()?.len())
     }
 
     /// Stringify this `GraphModule`.
@@ -222,10 +217,30 @@ impl GraphModule {
             .call1((PyBool::new(py, false),))?
             .extract()
     }
+
+    #[inline]
+    fn get_parameters_pydict(&self) -> PyResult<&PyDict> {
+        Ok(self.deref().getattr("_parameters")?.downcast::<PyDict>()?)
+    }
+
+    #[inline]
+    fn get_buffers_pydict(&self) -> PyResult<&PyDict> {
+        Ok(self.deref().getattr("_buffers")?.downcast::<PyDict>()?)
+    }
 }
 
 impl fmt::Debug for GraphModule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.graph().unwrap())
     }
+}
+
+#[inline]
+fn value_to_slice(v: &PyAny) -> PyResult<&'static [u8]> {
+    let offset = v.getattr("storage_offset")?.call0()?.extract::<usize>()?
+        * v.getattr("element_size")?.call0()?.extract::<usize>()?;
+    let storage = v.getattr("untyped_storage")?.call0()?;
+    let ptr = storage.getattr("data_ptr")?.call0()?.extract::<usize>()? + offset;
+    let len = storage.getattr("nbytes")?.call0()?.extract::<usize>()? - offset;
+    Ok(unsafe { slice::from_raw_parts(ptr as *const u8, len) })
 }
