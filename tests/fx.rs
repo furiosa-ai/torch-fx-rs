@@ -233,9 +233,9 @@ gm._parameters["param_buf"] = torch.randn(8)
         )?;
         let gm: &GraphModule = gm.getattr("gm")?.downcast()?;
 
-        assert_eq!(gm.buffers()?.len(), 1);
-        assert!(gm.buffers()?.get("buf_buf").is_some());
-        assert_eq!(gm.buffers()?.get("buf_buf").unwrap().len(), 4);
+        assert_eq!(gm.extract_buffers()?.len(), 1);
+        assert!(gm.extract_buffers()?.get("buf_buf").is_some());
+        assert_eq!(gm.extract_buffers()?.get("buf_buf").unwrap().len(), 4);
         assert_eq!(gm.count_parameters()?, 1);
         assert!(gm.get_parameter("param_buf")?.is_some());
         assert_eq!(gm.get_parameter("param_buf")?.unwrap().len(), 8 * 4);
@@ -272,9 +272,9 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
         gm.getattr("_parameters")?
             .set_item("param_buf", randn.call1((8,))?)?;
 
-        assert_eq!(gm.buffers()?.len(), 1);
-        assert!(gm.buffers()?.get("buf_buf").is_some());
-        assert_eq!(gm.buffers()?.get("buf_buf").unwrap().len(), 4);
+        assert_eq!(gm.extract_buffers()?.len(), 1);
+        assert!(gm.extract_buffers()?.get("buf_buf").is_some());
+        assert_eq!(gm.extract_buffers()?.get("buf_buf").unwrap().len(), 4);
         assert_eq!(gm.count_parameters()?, 1);
         assert!(gm.get_parameter("param_buf")?.is_some());
         assert_eq!(gm.get_parameter("param_buf")?.unwrap().len(), 8 * 4);
