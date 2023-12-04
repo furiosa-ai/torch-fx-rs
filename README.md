@@ -45,7 +45,18 @@ The constructor method of this returns a shared reference [`&GraphModule`](#pub-
     If new instance is created succesfully, returns `Ok` with a shared reference to the newly created instance in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn buffers(&self)
+    pub fn extract_parameters(&self)
+        -> PyResult<HashMap<String, &[u8]>>
+    ```
+
+    Collect all parameters of this [`GraphModule`](#pub-struct-graphmodule).
+
+    Make a `HashMap` which maps the parameter name to a slice representing the underlying storage of the parameter value.
+
+    If this process is successful, returns `Ok` with the `HashMap` in it. Otherwise, return `Err` with a `PyErr` in it. `PyErr` will explain the cause of the failure.
+
+*   ```rust
+    pub fn extract_buffers(&self)
         -> PyResult<HashMap<String, &[u8]>>
     ```
 
