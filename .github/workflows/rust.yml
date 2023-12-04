@@ -16,11 +16,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: ${{matrix.rust}}
-        components: rustfmt, clippy
     - run: cargo fmt -- --check
     - run: cargo clippy --all-targets -- --deny warnings
     - run: cargo test
