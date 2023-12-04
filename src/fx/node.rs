@@ -19,12 +19,14 @@ pub struct Node(PyAny);
 unsafe impl PyNativeType for Node {}
 
 impl ToPyObject for Node {
+    #[inline]
     fn to_object(&self, py: Python<'_>) -> PyObject {
         unsafe { PyObject::from_borrowed_ptr(py, self.as_ptr()) }
     }
 }
 
 impl AsRef<PyAny> for Node {
+    #[inline]
     fn as_ref(&self) -> &PyAny {
         &self.0
     }
@@ -33,30 +35,35 @@ impl AsRef<PyAny> for Node {
 impl Deref for Node {
     type Target = PyAny;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl AsPyPointer for Node {
+    #[inline]
     fn as_ptr(&self) -> *mut pyo3::ffi::PyObject {
         self.0.as_ptr()
     }
 }
 
 impl IntoPy<Py<Node>> for &'_ Node {
+    #[inline]
     fn into_py(self, py: Python<'_>) -> Py<Node> {
         unsafe { Py::from_borrowed_ptr(py, self.as_ptr()) }
     }
 }
 
 impl From<&'_ Node> for Py<Node> {
+    #[inline]
     fn from(value: &'_ Node) -> Self {
         unsafe { Py::from_borrowed_ptr(value.py(), value.as_ptr()) }
     }
 }
 
 impl<'a> From<&'a Node> for &'a PyAny {
+    #[inline]
     fn from(value: &'a Node) -> Self {
         unsafe { &*(value as *const Node as *const PyAny) }
     }
@@ -68,12 +75,14 @@ unsafe impl PyTypeInfo for Node {
     const NAME: &'static str = "Node";
     const MODULE: Option<&'static str> = Some("torch.fx");
 
+    #[inline]
     fn type_object_raw(py: Python<'_>) -> *mut pyo3::ffi::PyTypeObject {
         PyAny::type_object_raw(py)
     }
 }
 
 impl<'py> FromPyObject<'py> for &'py Node {
+    #[inline]
     fn extract(ob: &'py PyAny) -> PyResult<Self> {
         ob.downcast().map_err(Into::into)
     }
@@ -95,7 +104,7 @@ impl Node {
     /// The `PyErr` will explain the cause of the failure.
     pub fn flatten_node_args(&self) -> PyResult<Vec<String>> {
         let mut flatten_args = vec![];
-        let args = self.deref().getattr("args")?.iter()?;
+        let args = self.getattr("args")?.iter()?;
         for obj in args {
             let arg = Argument::extract(obj?)?;
             match arg {
@@ -114,7 +123,7 @@ impl Node {
     /// Otherwise, returns `Err` with a `PyErr` in it.
     /// The `PyErr` will explain the cause of the failure.
     pub fn args(&self) -> PyResult<Vec<Argument>> {
-        self.deref().getattr("args")?.extract()
+        self.getattr("args")?.extract()
     }
 
     /// Retrieve the name of this `Node`.
@@ -124,7 +133,7 @@ impl Node {
     /// Otherwise, returns `Err` with a `PyErr` in it.
     /// The `PyErr` will explain the cause of the failure.
     pub fn name(&self) -> PyResult<String> {
-        self.deref().getattr("name")?.extract()
+        self.getattr("name")?.extract()
     }
 
     /// Retrieve the opcode of this `Node`.
@@ -134,7 +143,7 @@ impl Node {
     /// Otherwise, returns `Err` with a `PyErr` in it.
     /// The `PyErr` will explain the cause of the failure.
     pub fn op(&self) -> PyResult<Op> {
-        self.deref().getattr("op")?.extract()
+        self.getattr("op")?.extract()
     }
 
     /// Retrieve the target this `Node` should call.
@@ -144,7 +153,7 @@ impl Node {
     /// Otherwise, returns `Err` with a `PyErr` in it.
     /// The `PyErr` will explain the cause of the failure.
     pub fn target(&self) -> PyResult<Target> {
-        self.deref().getattr("target")?.extract()
+        self.getattr("target")?.extract()
     }
 
     /// Retrieve the kwargs to be passed to the target of this `Node`.
@@ -154,7 +163,7 @@ impl Node {
     /// Otherwise, returns `Err` with a `PyErr` in it.
     /// The `PyErr` will explain the cause of the failure.
     pub fn kwargs(&self) -> PyResult<HashMap<String, Argument>> {
-        self.deref().getattr("kwargs")?.extract()
+        self.getattr("kwargs")?.extract()
     }
 
     /// Retrieve the meta of this `Node`.
@@ -164,7 +173,7 @@ impl Node {
     /// Otherwise, returns `Ok(Default::default())`.
     /// This never returns `Err`.
     pub fn meta(&self) -> PyResult<HashMap<String, PyObject>> {
-        if let Ok(meta) = self.deref().getattr("meta") {
+        if let Ok(meta) = self.getattr("meta") {
             meta.extract()
         } else {
             Ok(Default::default())
@@ -172,7 +181,7 @@ impl Node {
     }
 
     fn extract_meta_tensor_meta(&self) -> PyResult<MetaTuple> {
-        Ok(if let Ok(meta) = self.deref().getattr("meta") {
+        Ok(if let Ok(meta) = self.getattr("meta") {
             let tensor_meta = meta.get_item("tensor_meta").ok().map(TensorMeta::extracts_tensor_meta).transpose().unwrap_or_else(|e| {
                 tracing::debug!("Failed to extract tensor_meta, probably it is gm before 'shape_prop' called., {e:?}");
                 None
@@ -185,7 +194,7 @@ impl Node {
     }
 
     fn extract_users(&self) -> PyResult<Vec<String>> {
-        let user_keys = self.deref().getattr("users")?.getattr("keys")?.call0()?;
+        let user_keys = self.getattr("users")?.getattr("keys")?.call0()?;
         user_keys
             .iter()?
             .map(|r| r?.getattr("name")?.extract())
@@ -221,12 +230,7 @@ impl fmt::Debug for Node {
                 target: self.target().unwrap(),
                 args: self.args().unwrap(),
                 kwargs: self.kwargs().unwrap(),
-                stack_trace: self
-                    .deref()
-                    .getattr("stack_trace")
-                    .unwrap()
-                    .extract()
-                    .unwrap(),
+                stack_trace: self.getattr("stack_trace").unwrap().extract().unwrap(),
                 meta,
                 tensor_meta,
                 users: self.extract_users().unwrap()

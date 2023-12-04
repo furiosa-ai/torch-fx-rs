@@ -21,12 +21,14 @@ pub struct GraphModule(PyAny);
 unsafe impl PyNativeType for GraphModule {}
 
 impl ToPyObject for GraphModule {
+    #[inline]
     fn to_object(&self, py: Python<'_>) -> PyObject {
         unsafe { PyObject::from_borrowed_ptr(py, self.as_ptr()) }
     }
 }
 
 impl AsRef<PyAny> for GraphModule {
+    #[inline]
     fn as_ref(&self) -> &PyAny {
         &self.0
     }
@@ -35,30 +37,35 @@ impl AsRef<PyAny> for GraphModule {
 impl Deref for GraphModule {
     type Target = PyAny;
 
+    #[inline]
     fn deref(&self) -> &PyAny {
         &self.0
     }
 }
 
 impl AsPyPointer for GraphModule {
+    #[inline]
     fn as_ptr(&self) -> *mut pyo3::ffi::PyObject {
         self.0.as_ptr()
     }
 }
 
 impl IntoPy<Py<GraphModule>> for &'_ GraphModule {
+    #[inline]
     fn into_py(self, py: Python<'_>) -> Py<GraphModule> {
         unsafe { Py::from_borrowed_ptr(py, self.as_ptr()) }
     }
 }
 
 impl From<&'_ GraphModule> for Py<GraphModule> {
+    #[inline]
     fn from(value: &'_ GraphModule) -> Self {
         unsafe { Py::from_borrowed_ptr(value.py(), value.as_ptr()) }
     }
 }
 
 impl<'a> From<&'a GraphModule> for &'a PyAny {
+    #[inline]
     fn from(value: &'a GraphModule) -> Self {
         unsafe { &*(value as *const GraphModule as *const PyAny) }
     }
@@ -70,12 +77,14 @@ unsafe impl PyTypeInfo for GraphModule {
     const NAME: &'static str = "GraphModule";
     const MODULE: Option<&'static str> = Some("torch.fx");
 
+    #[inline]
     fn type_object_raw(py: Python<'_>) -> *mut pyo3::ffi::PyTypeObject {
         PyAny::type_object_raw(py)
     }
 }
 
 impl<'py> FromPyObject<'py> for &'py GraphModule {
+    #[inline]
     fn extract(ob: &'py PyAny) -> PyResult<Self> {
         ob.downcast().map_err(Into::into)
     }
@@ -92,11 +101,7 @@ impl GraphModule {
     pub fn new<'py>(py: Python<'py>, nn: &GraphModule, graph: &Graph) -> PyResult<&'py Self> {
         let gm_module = py.import("torch.fx")?.getattr("GraphModule")?;
         let gm = gm_module.getattr("__new__")?.call1((gm_module,))?;
-        gm_module.getattr("__init__")?.call1((
-            gm,
-            IntoPy::<PyObject>::into_py(nn, py),
-            IntoPy::<PyObject>::into_py(graph, py).as_ref(py),
-        ))?;
+        gm_module.getattr("__init__")?.call1((gm, nn, graph))?;
         Ok(gm.downcast()?)
     }
 
@@ -114,9 +119,7 @@ impl GraphModule {
         nn_module.getattr("__init__")?.call1((nn,))?;
         let gm_module = py.import("torch.fx")?.getattr("GraphModule")?;
         let gm = gm_module.getattr("__new__")?.call1((gm_module,))?;
-        gm_module
-            .getattr("__init__")?
-            .call1((gm, nn, IntoPy::<PyObject>::into_py(graph, py)))?;
+        gm_module.getattr("__init__")?.call1((gm, nn, graph))?;
         Ok(gm.downcast()?)
     }
 
@@ -142,7 +145,7 @@ impl GraphModule {
     /// Otherwise, returns `Err` with a `PyErr` in it.
     /// The `PyErr` will explain the cause of the failure.
     pub fn graph(&self) -> PyResult<&Graph> {
-        Ok(self.deref().getattr("graph")?.downcast()?)
+        Ok(self.getattr("graph")?.downcast()?)
     }
 
     /// Get the underlying storage of the parameter value named as the value of `name`,
@@ -204,20 +207,19 @@ impl GraphModule {
     /// `PyErr` in it. The `PyErr` will explain the cause of the failure.
     pub fn print_readable(&self) -> PyResult<String> {
         let py = self.py();
-        self.deref()
-            .getattr("print_readable")?
+        self.getattr("print_readable")?
             .call1((PyBool::new(py, false),))?
             .extract()
     }
 
     #[inline]
     fn get_parameters_pydict(&self) -> PyResult<&PyDict> {
-        Ok(self.deref().getattr("_parameters")?.downcast::<PyDict>()?)
+        Ok(self.getattr("_parameters")?.downcast::<PyDict>()?)
     }
 
     #[inline]
     fn get_buffers_pydict(&self) -> PyResult<&PyDict> {
-        Ok(self.deref().getattr("_buffers")?.downcast::<PyDict>()?)
+        Ok(self.getattr("_buffers")?.downcast::<PyDict>()?)
     }
 }
 

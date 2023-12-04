@@ -113,7 +113,7 @@ impl Graph {
     ///
     /// [nodes]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.nodes
     pub fn nodes(&self) -> PyResult<&PyIterator> {
-        self.deref().getattr("nodes")?.iter()
+        self.getattr("nodes")?.iter()
     }
 
     /// An interface for [`eliminate_dead_code`][eliminate_dead_code] instance
@@ -125,7 +125,7 @@ impl Graph {
     ///
     /// [eliminate_dead_code]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.eliminate_dead_code
     pub fn eliminate_dead_code(&self) -> PyResult<()> {
-        self.deref().getattr("eliminate_dead_code")?.call0()?;
+        self.getattr("eliminate_dead_code")?.call0()?;
         Ok(())
     }
 
@@ -139,7 +139,7 @@ impl Graph {
     ///
     /// [lint]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.lint
     pub fn lint(&self) -> PyResult<()> {
-        self.deref().getattr("lint")?.call0()?;
+        self.getattr("lint")?.call0()?;
         Ok(())
     }
 
@@ -167,27 +167,27 @@ impl Graph {
         let node_args = PyTuple::new(py, &[op.into_py(py), target.into_py(py)]);
         let node_kwargs = {
             let node_kwargs = PyDict::new(py);
-            node_kwargs.set_item("args", {
-                let elems = args
-                    .into_iter()
-                    .map(|arg| self.argument_into_py(py, arg).unwrap());
-                let obj: PyObject = PyTuple::new(py, elems).into();
-                obj
-            })?;
-            node_kwargs.set_item("kwargs", {
-                let py_map = kwargs
+            node_kwargs.set_item(
+                "args",
+                PyTuple::new(
+                    py,
+                    args.into_iter()
+                        .map(|arg| self.argument_into_py(py, arg).unwrap()),
+                ),
+            )?;
+            node_kwargs.set_item(
+                "kwargs",
+                kwargs
                     .into_iter()
                     .map(|(key, arg)| (key, self.argument_into_py(py, arg).unwrap()))
-                    .collect::<HashMap<_, _>>();
-                let obj: PyObject = py_map.into_py(py);
-                obj
-            })?;
-            node_kwargs.set_item("name", name.as_ref().to_string().into_py(py))?;
+                    .collect::<HashMap<_, _>>(),
+            )?;
+            node_kwargs.set_item("name", name.as_ref())?;
             Some(node_kwargs)
         };
-        let create_node_fn = self.deref().getattr("create_node")?;
+        let create_node_fn = self.getattr("create_node")?;
         let node = create_node_fn.call(node_args, node_kwargs)?;
-        node.setattr("meta", meta.into_py(py))?;
+        node.setattr("meta", meta)?;
         Ok(node.downcast()?)
     }
 
@@ -235,10 +235,10 @@ impl Graph {
             return Err(PyTypeError::new_err("output arg must be a tuple of nodes"));
         }
 
-        let name = "output".to_string();
+        let name = "output";
         self.create_node(
             Op::Output,
-            Target::Str(name.clone()),
+            Target::Str(name.to_string()),
             vec![args],
             Default::default(),
             name,
@@ -400,7 +400,7 @@ impl Graph {
     /// `PyErr` in it. The `PyErr` will explain the cause of the failure.
     pub fn graph_to_string(&self, py: Python<'_>) -> PyResult<String> {
         let builtin_str_fn = py.import("builtins")?.getattr("str")?;
-        builtin_str_fn.call1((self.deref(),))?.extract()
+        builtin_str_fn.call1((self,))?.extract()
     }
 
     /// Collect all named `Node`s of this `Graph`.
@@ -455,18 +455,16 @@ impl Graph {
             }
             Argument::NodeTuple(node_names) => Ok(PyTuple::new(py, {
                 let named_nodes = self.named_nodes()?;
-                node_names.into_iter().map(move |name| {
-                    let node = *named_nodes.get(&name).unwrap();
-                    IntoPy::<PyObject>::into_py(node, py)
-                })
+                node_names
+                    .into_iter()
+                    .map(move |name| *named_nodes.get(&name).unwrap())
             })
             .into_py(py)),
             Argument::NodeList(node_names) => Ok(PyList::new(py, {
                 let named_nodes = self.named_nodes()?;
-                node_names.into_iter().map(move |name| {
-                    let node = *named_nodes.get(&name).unwrap();
-                    IntoPy::<PyObject>::into_py(node, py)
-                })
+                node_names
+                    .into_iter()
+                    .map(move |name| *named_nodes.get(&name).unwrap())
             })
             .into_py(py)),
             Argument::OptionalNodeTuple(node_names) => Ok(PyTuple::new(py, {
