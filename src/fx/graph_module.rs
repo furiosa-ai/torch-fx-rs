@@ -155,11 +155,7 @@ impl GraphModule {
     /// `PyErr` will explain the cause of the failure.
     pub fn get_parameter(&self, name: &str) -> PyResult<Option<&[u8]>> {
         let found = self.get_parameters_pydict()?.get_item_with_error(name)?;
-        Ok(if let Some(v) = found {
-            Some(value_to_slice(v)?)
-        } else {
-            None
-        })
+        found.map(value_to_slice).transpose()
     }
 
     /// Get the number of parameters of this `GraphModule`.
@@ -183,11 +179,7 @@ impl GraphModule {
     /// `PyErr` will explain the cause of the failure.
     pub fn get_buffer(&self, name: &str) -> PyResult<Option<&[u8]>> {
         let found = self.get_buffers_pydict()?.get_item_with_error(name)?;
-        Ok(if let Some(v) = found {
-            Some(value_to_slice(v)?)
-        } else {
-            None
-        })
+        found.map(value_to_slice).transpose()
     }
 
     /// Get the number of buffers of this `GraphModule`.
