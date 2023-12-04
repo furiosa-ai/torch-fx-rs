@@ -123,6 +123,21 @@ impl GraphModule {
         Ok(gm.downcast()?)
     }
 
+    /// Collect all parameters of this `GraphModule`.
+    ///
+    /// Make a `HashMap` which maps the parameter name
+    /// to a slice representing the underlying storage of the parameter value.
+    ///
+    /// If this process is done successfully, returns `Ok` with the `HashMap` in it.
+    /// Otherwise, return `Err` with a `PyErr` in it.
+    /// `PyErr` will explain the cause of the failure.
+    pub fn parameters(&self) -> PyResult<HashMap<String, &[u8]>> {
+        self.get_parameters_pydict()?
+            .into_iter()
+            .map(|(k, v)| Ok((k.extract::<String>()?, value_to_slice(v)?)))
+            .collect()
+    }
+
     /// Collect all buffers of this `GraphModule`.
     ///
     /// Make a `HashMap` which maps the buffer name
