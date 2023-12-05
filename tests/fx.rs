@@ -20,7 +20,7 @@ fn unittest_graph() -> PyResult<()> {
             Op::GetAttr,
             Target::Str("test".into()),
             vec![],
-            Default::default(),
+            None,
             "test_node",
             Default::default(),
         )?;
@@ -113,7 +113,7 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             Op::CallFunction,
             Target::BuiltinFn("getitem".to_string(), getitem.into_py(py)),
             vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
-            Default::default(),
+            None,
             "getitem_0",
             Default::default(),
         )?;
@@ -121,7 +121,7 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             Op::CallFunction,
             Target::BuiltinFn("getitem".to_string(), getitem.into_py(py)),
             vec![Argument::Value(i1.into_py(py)), Argument::Int(0)],
-            Default::default(),
+            None,
             "getitem_1",
             Default::default(),
         )?;
@@ -175,7 +175,7 @@ fn unittest_custom_fn() -> PyResult<()> {
         let callable_fn = py.import("builtins")?.getattr("callable")?;
         assert!(callable_fn.call1((custom_fn_in_py,))?.extract()?);
 
-        g.new_custom_fn("test", vec![], None, custom_fn)?;
+        g.new_custom_fn("test", None, None, custom_fn)?;
         Ok(())
     })
 }
@@ -258,7 +258,7 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
                     py.import("operator")?.getattr("getitem")?.into_py(py),
                 ),
                 vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
-                Default::default(),
+                None,
                 "getitem_0",
                 Default::default(),
             )?;
@@ -334,7 +334,7 @@ fn unittest_extract_strided_buffers_rust() -> PyResult<()> {
                     py.import("operator")?.getattr("getitem")?.into_py(py),
                 ),
                 vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
-                Default::default(),
+                None,
                 "getitem_0",
                 Default::default(),
             )?;
@@ -597,7 +597,7 @@ fn unittest_extract_tensor_as_slices_rust() -> PyResult<()> {
                     py.import("operator")?.getattr("getitem")?.into_py(py),
                 ),
                 vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
-                Default::default(),
+                None,
                 "getitem_0",
                 Default::default(),
             )?;

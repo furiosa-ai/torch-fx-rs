@@ -158,8 +158,8 @@ impl Graph {
         &self,
         op: Op,
         target: Target,
-        args: Vec<Argument>,
-        kwargs: HashMap<String, Argument>,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
         name: S,
         meta: HashMap<String, PyObject>,
     ) -> PyResult<&Node> {
@@ -209,8 +209,8 @@ impl Graph {
         self.create_node(
             Op::Placeholder,
             Target::Str(name.as_ref().to_string()),
-            vec![],
-            Default::default(),
+            None,
+            None,
             name,
             Default::default(),
         )
@@ -240,7 +240,7 @@ impl Graph {
             Op::Output,
             Target::Str(name.to_string()),
             vec![args],
-            Default::default(),
+            None,
             name,
             Default::default(),
         )
@@ -264,15 +264,15 @@ impl Graph {
     pub fn new_custom_fn<S: AsRef<str>>(
         &self,
         name: S,
-        args: Vec<Argument>,
-        kwargs: Option<HashMap<String, Argument>>,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
         custom_fn: CustomFn,
     ) -> PyResult<&Node> {
         self.create_node(
             Op::CallFunction,
             Target::CustomFn(custom_fn),
             args,
-            kwargs.unwrap_or_default(),
+            kwargs,
             name.as_ref(),
             Default::default(),
         )
