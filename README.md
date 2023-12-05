@@ -174,8 +174,8 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
         &self,
         op: Op,
         target: Target,
-        args: Vec<Argument>,
-        kwargs: HashMap<String, Argument>,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
         name: S,
         meta: HashMap<String, PyObject>,
     ) -> PyResult<&Node>
@@ -215,8 +215,8 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     pub fn new_custom_fn<S: AsRef<str>>(
         &self,
         name: S,
-        args: Vec<Argument>,
-        kwargs: Option<HashMap<String, Argument>>,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
         custom_fn: CustomFn,
     ) -> PyResult<&Node>
     ```
