@@ -176,15 +176,16 @@ impl Graph {
                 PyTuple::new(
                     py,
                     args.into_iter()
-                        .map(|arg| self.argument_into_py(py, arg).unwrap()),
+                        .map(|arg| self.argument_into_py(py, arg))
+                        .collect::<PyResult<Vec<_>>>()?,
                 ),
             )?;
             node_kwargs.set_item(
                 "kwargs",
                 kwargs
                     .into_iter()
-                    .map(|(key, arg)| (key, self.argument_into_py(py, arg).unwrap()))
-                    .collect::<HashMap<_, _>>(),
+                    .map(|(key, arg)| Ok((key, self.argument_into_py(py, arg)?)))
+                    .collect::<PyResult<HashMap<_, _>>>()?,
             )?;
             node_kwargs.set_item("name", name.as_ref())?;
             Some(node_kwargs)
