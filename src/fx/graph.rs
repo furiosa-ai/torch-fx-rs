@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fmt, ops::Deref};
+use std::{
+    collections::HashMap,
+    fmt::{self, Error},
+    ops::Deref,
+};
 
 use indexmap::IndexMap;
 use pyo3::{
@@ -520,7 +524,7 @@ impl fmt::Debug for Graph {
             "{:?}",
             Graph {
                 origin: PyObject::from(self),
-                named_nodes: self.named_nodes().unwrap()
+                named_nodes: self.named_nodes().map_err(|_| Error)?
             }
         )
     }

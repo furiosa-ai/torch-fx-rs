@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fmt, ops::Deref};
+use std::{
+    collections::HashMap,
+    fmt::{self, Error},
+    ops::Deref,
+};
 
 use pyo3::{
     AsPyPointer, FromPyObject, IntoPy, Py, PyAny, PyNativeType, PyObject, PyResult, PyTypeInfo,
@@ -219,21 +223,25 @@ impl fmt::Debug for Node {
             users: Vec<String>,
         }
 
-        let (meta, tensor_meta) = self.extract_meta_tensor_meta().unwrap();
+        let (meta, tensor_meta) = self.extract_meta_tensor_meta().map_err(|_| Error)?;
         write!(
             f,
             "{:?}",
             Node {
                 origin: PyObject::from(self),
-                name: self.name().unwrap(),
-                op: self.op().unwrap(),
-                target: self.target().unwrap(),
-                args: self.args().unwrap(),
-                kwargs: self.kwargs().unwrap(),
-                stack_trace: self.getattr("stack_trace").unwrap().extract().unwrap(),
+                name: self.name().map_err(|_| Error)?,
+                op: self.op().map_err(|_| Error)?,
+                target: self.target().map_err(|_| Error)?,
+                args: self.args().map_err(|_| Error)?,
+                kwargs: self.kwargs().map_err(|_| Error)?,
+                stack_trace: self
+                    .getattr("stack_trace")
+                    .map_err(|_| Error)?
+                    .extract()
+                    .map_err(|_| Error)?,
                 meta,
                 tensor_meta,
-                users: self.extract_users().unwrap()
+                users: self.extract_users().map_err(|_| Error)?
             }
         )
     }

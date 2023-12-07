@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fmt, ops::Deref, slice};
+use std::{
+    collections::HashMap,
+    fmt::{self, Error},
+    ops::Deref,
+    slice,
+};
 
 use pyo3::{
     types::{PyBool, PyDict},
@@ -240,7 +245,7 @@ impl GraphModule {
 
 impl fmt::Debug for GraphModule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.graph().unwrap())
+        write!(f, "{:?}", self.graph().map_err(|_| Error)?)
     }
 }
 
