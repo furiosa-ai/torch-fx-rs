@@ -22,7 +22,7 @@ fn unittest_graph() -> PyResult<()> {
             vec![],
             None,
             "test_node",
-            Default::default(),
+            None,
         )?;
         let nodes = graph.nodes()?;
         assert_eq!(nodes.count(), 1);
@@ -115,7 +115,7 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
             None,
             "getitem_0",
-            Default::default(),
+            None,
         )?;
         let _g1 = graph_from.create_node(
             Op::CallFunction,
@@ -123,7 +123,7 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             vec![Argument::Value(i1.into_py(py)), Argument::Int(0)],
             None,
             "getitem_1",
-            Default::default(),
+            None,
         )?;
         graph_from.new_output(Argument::NodeTuple(vec![
             "getitem_0".to_string(),
@@ -260,7 +260,7 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
                 vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
                 None,
                 "getitem_0",
-                Default::default(),
+                None,
             )?;
             graph.new_output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
             graph
@@ -336,7 +336,7 @@ fn unittest_extract_strided_buffers_rust() -> PyResult<()> {
                 vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
                 None,
                 "getitem_0",
-                Default::default(),
+                None,
             )?;
             graph.new_output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
             graph
@@ -599,7 +599,7 @@ fn unittest_extract_tensor_as_slices_rust() -> PyResult<()> {
                 vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
                 None,
                 "getitem_0",
-                Default::default(),
+                None,
             )?;
             graph.new_output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
             graph

@@ -170,7 +170,7 @@ impl Graph {
         args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
         kwargs: impl IntoIterator<Item = (String, Argument)>,
         name: S,
-        meta: HashMap<String, PyObject>,
+        meta: Option<HashMap<String, PyObject>>,
     ) -> PyResult<&Node> {
         let py = self.py();
         let node_args = PyTuple::new(py, &[op.into_py(py), target.into_py(py)]);
@@ -195,9 +195,10 @@ impl Graph {
             node_kwargs.set_item("name", name.as_ref())?;
             Some(node_kwargs)
         };
-        let create_node_fn = self.getattr("create_node")?;
-        let node = create_node_fn.call(node_args, node_kwargs)?;
-        node.setattr("meta", meta)?;
+        let node = self.call_method("create_node", node_args, node_kwargs)?;
+        if let Some(meta) = meta {
+            node.setattr("meta", meta)?;
+        }
         Ok(node.downcast()?)
     }
 
@@ -252,7 +253,7 @@ impl Graph {
             vec![args],
             None,
             name,
-            Default::default(),
+            None,
         )
     }
 
@@ -284,7 +285,7 @@ impl Graph {
             args,
             kwargs,
             name.as_ref(),
-            Default::default(),
+            None,
         )
     }
 
