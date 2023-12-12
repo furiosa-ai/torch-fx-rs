@@ -223,7 +223,7 @@ impl Graph {
             None,
             None,
             name,
-            Default::default(),
+            None,
         )
     }
 
