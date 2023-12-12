@@ -163,7 +163,7 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [create_node]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.create_node
-    pub fn create_node<S: AsRef<str>>(
+    pub fn create_node_with_meta<S: AsRef<str>>(
         &self,
         op: Op,
         target: Target,
@@ -173,10 +173,10 @@ impl Graph {
         meta: Option<HashMap<String, PyObject>>,
     ) -> PyResult<&Node> {
         let py = self.py();
-        let node_args = PyTuple::new(py, &[op.into_py(py), target.into_py(py)]);
-        let node_kwargs = {
-            let node_kwargs = PyDict::new(py);
-            node_kwargs.set_item(
+        let method_args = PyTuple::new(py, &[op.into_py(py), target.into_py(py)]);
+        let method_kwargs = {
+            let method_kwargs = PyDict::new(py);
+            method_kwargs.set_item(
                 "args",
                 PyTuple::new(
                     py,
@@ -185,17 +185,17 @@ impl Graph {
                         .collect::<PyResult<Vec<_>>>()?,
                 ),
             )?;
-            node_kwargs.set_item(
+            method_kwargs.set_item(
                 "kwargs",
                 kwargs
                     .into_iter()
                     .map(|(key, arg)| Ok((key, self.argument_into_py(py, arg)?)))
                     .collect::<PyResult<HashMap<_, _>>>()?,
             )?;
-            node_kwargs.set_item("name", name.as_ref())?;
-            Some(node_kwargs)
+            method_kwargs.set_item("name", name.as_ref())?;
+            Some(method_kwargs)
         };
-        let node = self.call_method("create_node", node_args, node_kwargs)?;
+        let node = self.call_method("create_node", method_args, method_kwargs)?;
         if let Some(meta) = meta {
             node.setattr("meta", meta)?;
         }
@@ -216,8 +216,8 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [placeholder]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.placeholder
-    pub fn new_placeholder<S: AsRef<str>>(&self, name: S) -> PyResult<&Node> {
-        self.create_node(
+    pub fn placeholder_with_name<S: AsRef<str>>(&self, name: S) -> PyResult<&Node> {
+        self.create_node_with_meta(
             Op::Placeholder,
             Target::Str(name.as_ref().to_string()),
             None,
@@ -241,13 +241,13 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [output]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.output
-    pub fn new_output(&self, args: Argument) -> PyResult<&Node> {
+    pub fn output(&self, args: Argument) -> PyResult<&Node> {
         if !matches!(args, Argument::NodeTuple(_)) {
             return Err(PyTypeError::new_err("output arg must be a tuple of nodes"));
         }
 
         let name = "output";
-        self.create_node(
+        self.create_node_with_meta(
             Op::Output,
             Target::Str(name.to_string()),
             vec![args],
@@ -272,14 +272,14 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [call_function]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.call_function
-    pub fn new_custom_fn<S: AsRef<str>>(
+    pub fn call_custom_fn_with_name<S: AsRef<str>>(
         &self,
         name: S,
+        custom_fn: CustomFn,
         args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
         kwargs: impl IntoIterator<Item = (String, Argument)>,
-        custom_fn: CustomFn,
     ) -> PyResult<&Node> {
-        self.create_node(
+        self.create_node_with_meta(
             Op::CallFunction,
             Target::CustomFn(custom_fn),
             args,
@@ -338,7 +338,7 @@ impl Graph {
     /// If something fails while looking into this `Graph`, returns `Err`
     /// with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
     pub fn flatten_node_args<S: AsRef<str>>(&self, node_name: S) -> PyResult<Option<Vec<String>>> {
-        let named_nodes = self.named_nodes()?;
+        let named_nodes = self.extract_named_nodes()?;
         match named_nodes.get(node_name.as_ref()) {
             Some(node) => Ok(Some(node.downcast::<Node>()?.flatten_node_args()?)),
             None => Ok(None),
@@ -356,7 +356,7 @@ impl Graph {
     /// If something fails while looking into this `Graph`, returns `Err`
     /// with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
     pub fn users<S: AsRef<str>>(&self, node_name: S) -> PyResult<Option<Vec<String>>> {
-        let named_nodes = self.named_nodes()?;
+        let named_nodes = self.extract_named_nodes()?;
         match named_nodes.get(node_name.as_ref()) {
             Some(node) => {
                 let user_keys = node.getattr("users")?.getattr("keys")?.call0()?;
@@ -392,7 +392,7 @@ impl Graph {
     /// If this process is done successfully, returns `Ok` with the `IndexMap` in it.
     /// Otherwise, return `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
-    pub fn named_nodes(&self) -> PyResult<IndexMap<String, &Node>> {
+    pub fn extract_named_nodes(&self) -> PyResult<IndexMap<String, &Node>> {
         self.nodes()?
             .map(|r| {
                 let r = r?;
@@ -435,21 +435,21 @@ impl Graph {
                 Ok(node.into_py(py))
             }
             Argument::NodeTuple(node_names) => Ok(PyTuple::new(py, {
-                let named_nodes = self.named_nodes()?;
+                let named_nodes = self.extract_named_nodes()?;
                 node_names
                     .into_iter()
                     .map(move |name| *named_nodes.get(&name).unwrap())
             })
             .into_py(py)),
             Argument::NodeList(node_names) => Ok(PyList::new(py, {
-                let named_nodes = self.named_nodes()?;
+                let named_nodes = self.extract_named_nodes()?;
                 node_names
                     .into_iter()
                     .map(move |name| *named_nodes.get(&name).unwrap())
             })
             .into_py(py)),
             Argument::OptionalNodeTuple(node_names) => Ok(PyTuple::new(py, {
-                let named_nodes = self.named_nodes()?;
+                let named_nodes = self.extract_named_nodes()?;
                 node_names.into_iter().map(move |name| {
                     name.map_or_else(
                         || py.None(),
@@ -459,7 +459,7 @@ impl Graph {
             })
             .into_py(py)),
             Argument::OptionalNodeList(node_names) => Ok(PyList::new(py, {
-                let named_nodes = self.named_nodes()?;
+                let named_nodes = self.extract_named_nodes()?;
                 node_names.into_iter().map(move |name| {
                     name.map_or_else(
                         || py.None(),
@@ -501,7 +501,7 @@ impl fmt::Debug for Graph {
             "{:?}",
             Graph {
                 origin: PyObject::from(self),
-                named_nodes: self.named_nodes().map_err(|_| Error)?
+                named_nodes: self.extract_named_nodes().map_err(|_| Error)?
             }
         )
     }

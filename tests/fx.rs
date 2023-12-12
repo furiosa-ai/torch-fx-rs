@@ -16,7 +16,7 @@ fn unittest_graph() -> PyResult<()> {
 
     Python::with_gil(|py| -> PyResult<()> {
         let graph = Graph::new(py)?;
-        graph.create_node(
+        graph.create_node_with_meta(
             Op::GetAttr,
             Target::Str("test".into()),
             vec![],
@@ -73,8 +73,8 @@ gm = torch.fx.GraphModule(torch.nn.Module(), graph)
         let gm: &GraphModule = gm.getattr("gm")?.downcast()?;
         let mut mapper = HashMap::default();
         let graph = Graph::new(py)?;
-        graph.new_placeholder("i_alt0")?;
-        graph.new_placeholder("i_alt1")?;
+        graph.placeholder_with_name("i_alt0")?;
+        graph.placeholder_with_name("i_alt1")?;
         let g0 = gm.graph()?.lookup_node("getitem_0")?.unwrap();
         mapper.insert(
             gm.graph()?.flatten_node_args(g0.name()?)?.unwrap()[0].clone(),
@@ -88,10 +88,10 @@ gm = torch.fx.GraphModule(torch.nn.Module(), graph)
         );
         graph.copy_node(g1, Some(&mapper))?;
         let output_arg = Argument::NodeTuple(vec![g0.name()?.clone(), g1.name()?.clone()]);
-        graph.new_output(output_arg)?;
+        graph.output(output_arg)?;
         graph.eliminate_dead_code()?;
         graph.lint()?;
-        assert_eq!(graph.named_nodes()?.len(), 5);
+        assert_eq!(graph.extract_named_nodes()?.len(), 5);
         let gm = GraphModule::new(py, gm, graph)?;
         assert_eq!(gm.graph()?.flatten_node_args("output")?.unwrap().len(), 2);
         Ok(())
@@ -107,9 +107,9 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
         let getitem = operator.getattr("getitem")?;
 
         let graph_from = Graph::new(py)?;
-        let i0 = graph_from.new_placeholder("i0")?;
-        let i1 = graph_from.new_placeholder("i1")?;
-        let _g0 = graph_from.create_node(
+        let i0 = graph_from.placeholder_with_name("i0")?;
+        let i1 = graph_from.placeholder_with_name("i1")?;
+        let _g0 = graph_from.create_node_with_meta(
             Op::CallFunction,
             Target::BuiltinFn("getitem".to_string(), getitem.into_py(py)),
             vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
@@ -117,7 +117,7 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             "getitem_0",
             None,
         )?;
-        let _g1 = graph_from.create_node(
+        let _g1 = graph_from.create_node_with_meta(
             Op::CallFunction,
             Target::BuiltinFn("getitem".to_string(), getitem.into_py(py)),
             vec![Argument::Value(i1.into_py(py)), Argument::Int(0)],
@@ -125,7 +125,7 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             "getitem_1",
             None,
         )?;
-        graph_from.new_output(Argument::NodeTuple(vec![
+        graph_from.output(Argument::NodeTuple(vec![
             "getitem_0".to_string(),
             "getitem_1".to_string(),
         ]))?;
@@ -134,8 +134,8 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
 
         let mut mapper = HashMap::default();
         let graph_to = Graph::new(py)?;
-        graph_to.new_placeholder("i_alt0")?;
-        graph_to.new_placeholder("i_alt1")?;
+        graph_to.placeholder_with_name("i_alt0")?;
+        graph_to.placeholder_with_name("i_alt1")?;
         let g0 = gm.graph()?.lookup_node("getitem_0")?.unwrap();
         mapper.insert(
             gm.graph()?.flatten_node_args(g0.name()?)?.unwrap()[0].clone(),
@@ -149,10 +149,10 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
         );
         graph_to.copy_node(g1, Some(&mapper))?;
         let output_arg = Argument::NodeTuple(vec![g0.name()?.clone(), g1.name()?.clone()]);
-        graph_to.new_output(output_arg)?;
+        graph_to.output(output_arg)?;
         graph_to.eliminate_dead_code()?;
         graph_to.lint()?;
-        assert_eq!(graph_to.named_nodes()?.len(), 5);
+        assert_eq!(graph_to.extract_named_nodes()?.len(), 5);
         let gm = GraphModule::new(py, gm, graph_to)?;
         assert_eq!(gm.graph()?.flatten_node_args("output")?.unwrap().len(), 2);
         Ok(())
@@ -175,7 +175,7 @@ fn unittest_custom_fn() -> PyResult<()> {
         let callable_fn = py.import("builtins")?.getattr("callable")?;
         assert!(callable_fn.call1((custom_fn_in_py,))?.extract()?);
 
-        g.new_custom_fn("test", None, None, custom_fn)?;
+        g.call_custom_fn_with_name("test", custom_fn, None, None)?;
         Ok(())
     })
 }
@@ -189,15 +189,15 @@ fn unittest_users_and_flatten_node_args() -> PyResult<()> {
 
         let custom_fn = CustomFn::new("empty_fn", generate_empty_fn());
         let n1_name = g
-            .new_custom_fn("test", vec![], None, custom_fn.clone())?
+            .call_custom_fn_with_name("test", custom_fn.clone(), vec![], None)?
             .name()?
             .clone();
         let n2_name = g
-            .new_custom_fn(
+            .call_custom_fn_with_name(
                 "test_2",
+                custom_fn,
                 vec![Argument::Node(n1_name.clone())],
                 None,
-                custom_fn,
             )?
             .name()?
             .clone();
@@ -250,8 +250,8 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
     Python::with_gil(|py| -> PyResult<()> {
         let gm = GraphModule::new_with_empty_gm(py, {
             let graph = Graph::new(py)?;
-            let i0 = graph.new_placeholder("i0")?;
-            let _g0 = graph.create_node(
+            let i0 = graph.placeholder_with_name("i0")?;
+            let _g0 = graph.create_node_with_meta(
                 Op::CallFunction,
                 Target::BuiltinFn(
                     "getitem".to_string(),
@@ -262,7 +262,7 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
                 "getitem_0",
                 None,
             )?;
-            graph.new_output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
+            graph.output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
             graph
         })?;
 
@@ -326,8 +326,8 @@ fn unittest_extract_strided_buffers_rust() -> PyResult<()> {
     Python::with_gil(|py| -> PyResult<()> {
         let gm = GraphModule::new_with_empty_gm(py, {
             let graph = Graph::new(py)?;
-            let i0 = graph.new_placeholder("i0")?;
-            let _g0 = graph.create_node(
+            let i0 = graph.placeholder_with_name("i0")?;
+            let _g0 = graph.create_node_with_meta(
                 Op::CallFunction,
                 Target::BuiltinFn(
                     "getitem".to_string(),
@@ -338,7 +338,7 @@ fn unittest_extract_strided_buffers_rust() -> PyResult<()> {
                 "getitem_0",
                 None,
             )?;
-            graph.new_output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
+            graph.output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
             graph
         })?;
 
@@ -589,8 +589,8 @@ fn unittest_extract_tensor_as_slices_rust() -> PyResult<()> {
     Python::with_gil(|py| -> PyResult<()> {
         let gm = GraphModule::new_with_empty_gm(py, {
             let graph = Graph::new(py)?;
-            let i0 = graph.new_placeholder("i0")?;
-            let _g0 = graph.create_node(
+            let i0 = graph.placeholder_with_name("i0")?;
+            let _g0 = graph.create_node_with_meta(
                 Op::CallFunction,
                 Target::BuiltinFn(
                     "getitem".to_string(),
@@ -601,7 +601,7 @@ fn unittest_extract_tensor_as_slices_rust() -> PyResult<()> {
                 "getitem_0",
                 None,
             )?;
-            graph.new_output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
+            graph.output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
             graph
         })?;
 
