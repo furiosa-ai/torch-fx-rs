@@ -144,7 +144,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If new instance is created successfully, returns `Ok` with a shared reference to the newly created instance in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn nodes(&self) -> PyResult<&PyIterator>
+    pub fn nodes_iterator(&self) -> PyResult<&PyIterator>
     ```
 
     Retrieve all the [`Node`s](https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.nodes) of this [`Graph`](#pub-struct-graph) as a Python iterator.
@@ -170,7 +170,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the method call is done successfully, returns `Ok(())`. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn create_node_with_meta<S: AsRef<str>>(
+    pub fn create_node<S: AsRef<str>>(
         &self,
         op: Op,
         target: Target,
@@ -186,7 +186,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the method call is done successfully, returns `Ok` with a shared reference to the newly created [`Node`](#pub-struct-node) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn placeholder_with_name<S: AsRef<str>>(
+    pub fn placeholder<S: AsRef<str>>(
         &self,
         name: S
     ) -> PyResult<&Node>
@@ -212,7 +212,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the creation and insertion of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) is done successfully, returns `Ok` with a shared reference to the newly created [`Node`](#pub-struct-node) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn call_custom_fn_with_name<S: AsRef<str>>(
+    pub fn call_custom_fn<S: AsRef<str>>(
         &self,
         name: S,
         custom_fn: CustomFn,

@@ -121,7 +121,7 @@ impl Graph {
     /// in it. The `PyErr` will explain the cause of the failure.
     ///
     /// [nodes]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.nodes
-    pub fn nodes(&self) -> PyResult<&PyIterator> {
+    pub fn nodes_iterator(&self) -> PyResult<&PyIterator> {
         self.getattr("nodes")?.iter()
     }
 
@@ -163,7 +163,7 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [create_node]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.create_node
-    pub fn create_node_with_meta<S: AsRef<str>>(
+    pub fn create_node<S: AsRef<str>>(
         &self,
         op: Op,
         target: Target,
@@ -216,8 +216,8 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [placeholder]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.placeholder
-    pub fn placeholder_with_name<S: AsRef<str>>(&self, name: S) -> PyResult<&Node> {
-        self.create_node_with_meta(
+    pub fn placeholder<S: AsRef<str>>(&self, name: S) -> PyResult<&Node> {
+        self.create_node(
             Op::Placeholder,
             Target::Str(name.as_ref().to_string()),
             None,
@@ -247,7 +247,7 @@ impl Graph {
         }
 
         let name = "output";
-        self.create_node_with_meta(
+        self.create_node(
             Op::Output,
             Target::Str(name.to_string()),
             vec![args],
@@ -272,14 +272,14 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [call_function]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.call_function
-    pub fn call_custom_fn_with_name<S: AsRef<str>>(
+    pub fn call_custom_fn<S: AsRef<str>>(
         &self,
         name: S,
         custom_fn: CustomFn,
         args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
         kwargs: impl IntoIterator<Item = (String, Argument)>,
     ) -> PyResult<&Node> {
-        self.create_node_with_meta(
+        self.create_node(
             Op::CallFunction,
             Target::CustomFn(custom_fn),
             args,
@@ -393,7 +393,7 @@ impl Graph {
     /// Otherwise, return `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
     pub fn extract_named_nodes(&self) -> PyResult<IndexMap<String, &Node>> {
-        self.nodes()?
+        self.nodes_iterator()?
             .map(|r| {
                 let r = r?;
                 let name: String = r.getattr("name")?.extract()?;
@@ -411,7 +411,7 @@ impl Graph {
     /// If this process fails, returns `Err` with a `PyErr` in it.
     /// `PyErr` will explain the cause of the failure.
     pub fn lookup_node<S: AsRef<str>>(&self, name: S) -> PyResult<Option<&Node>> {
-        let mut nodes = self.nodes()?;
+        let mut nodes = self.nodes_iterator()?;
         nodes
             .find_map(|node| {
                 (|| {
