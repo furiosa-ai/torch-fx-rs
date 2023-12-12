@@ -287,7 +287,7 @@ impl Graph {
             Target::CustomFn(custom_fn),
             args,
             kwargs,
-            name.as_ref(),
+            name,
             None,
         )
     }
@@ -318,7 +318,51 @@ impl Graph {
             Target::Callable(the_function),
             args,
             kwargs,
-            name.as_ref(),
+            name,
+            None,
+        )
+    }
+
+    pub fn call_arg_method<S1: AsRef<str>, S2: AsRef<str>>(
+        &self,
+        name: S1,
+        method_name: S2,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
+    ) -> PyResult<&Node> {
+        self.create_node(
+            Op::CallMethod,
+            Target::Str(method_name.as_ref().to_string()),
+            args,
+            kwargs,
+            name,
+            None,
+        )
+    }
+
+    pub fn call_module<S1: AsRef<str>, S2: AsRef<str>>(
+        &self,
+        name: S1,
+        module_name: S2,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
+    ) -> PyResult<&Node> {
+        let owning_module = self.getattr("owning_module")?;
+        if owning_module.is_true()?
+            && owning_module
+                .call_method1("get_submodule", (module_name.as_ref(),))?
+                .is_none()
+        {
+            self.py().import("warnings")?.getattr("warn")?.call1((
+                "Attempted to insert a call_module Node with no underlying reference in the owning GraphModule! Call GraphModule.add_submodule to add the necessary submodule",
+            ))?;
+        }
+        self.create_node(
+            Op::CallModule,
+            Target::Str(module_name.as_ref().to_string()),
+            args,
+            kwargs,
+            name,
             None,
         )
     }
