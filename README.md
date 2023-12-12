@@ -228,7 +228,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the creation and insertion of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) is done successfully, returns `Ok` with a shared reference to the newly created [`Node`](#pub-struct-node) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn copy_node(
+    pub fn node_copy(
         &self,
         node: &Node,
         mapper: Option<&HashMap<String, String>>,

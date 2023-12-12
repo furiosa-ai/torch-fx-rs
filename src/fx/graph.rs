@@ -303,7 +303,7 @@ impl Graph {
     /// explain the cause of the failure.
     ///
     /// [node_copy]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.node_copy
-    pub fn copy_node(
+    pub fn node_copy(
         &self,
         node: &Node,
         mapper: Option<&HashMap<String, String>>,

@@ -80,13 +80,13 @@ gm = torch.fx.GraphModule(torch.nn.Module(), graph)
             gm.graph()?.flatten_node_args(g0.name()?)?.unwrap()[0].clone(),
             "i_alt0".to_string(),
         );
-        graph.copy_node(g0, Some(&mapper))?;
+        graph.node_copy(g0, Some(&mapper))?;
         let g1 = gm.graph()?.lookup_node("getitem_1")?.unwrap();
         mapper.insert(
             gm.graph()?.flatten_node_args(g1.name()?)?.unwrap()[0].clone(),
             "i_alt1".to_string(),
         );
-        graph.copy_node(g1, Some(&mapper))?;
+        graph.node_copy(g1, Some(&mapper))?;
         let output_arg = Argument::NodeTuple(vec![g0.name()?.clone(), g1.name()?.clone()]);
         graph.output(output_arg)?;
         graph.eliminate_dead_code()?;
@@ -141,13 +141,13 @@ fn unittest_copy_graph_rust() -> PyResult<()> {
             gm.graph()?.flatten_node_args(g0.name()?)?.unwrap()[0].clone(),
             "i_alt0".to_string(),
         );
-        graph_to.copy_node(g0, Some(&mapper))?;
+        graph_to.node_copy(g0, Some(&mapper))?;
         let g1 = gm.graph()?.lookup_node("getitem_1")?.unwrap();
         mapper.insert(
             gm.graph()?.flatten_node_args(g1.name()?)?.unwrap()[0].clone(),
             "i_alt1".to_string(),
         );
-        graph_to.copy_node(g1, Some(&mapper))?;
+        graph_to.node_copy(g1, Some(&mapper))?;
         let output_arg = Argument::NodeTuple(vec![g0.name()?.clone(), g1.name()?.clone()]);
         graph_to.output(output_arg)?;
         graph_to.eliminate_dead_code()?;
