@@ -266,13 +266,16 @@ impl Graph {
     /// is changed into `custom_fn`, `type_expr` is not given (`None`), and
     /// the `name` for the name of this node is given.
     ///
+    /// `custom_fn` must be a `CustomFn`, a python callable which calls
+    /// a Rust function actually.
+    ///
     /// If the creation and insertion of the `Node` is done successfully,
     /// returns `Ok` with a shared reference to the newly created `Node` in
     /// it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will
     /// explain the cause of the failure.
     ///
     /// [call_function]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.call_function
-    pub fn call_custom_fn<S: AsRef<str>>(
+    pub fn call_custom_function<S: AsRef<str>>(
         &self,
         name: S,
         custom_fn: CustomFn,
@@ -282,6 +285,37 @@ impl Graph {
         self.create_node(
             Op::CallFunction,
             Target::CustomFn(custom_fn),
+            args,
+            kwargs,
+            name.as_ref(),
+            None,
+        )
+    }
+
+    /// Create and insert a call_function `Node` into this `Graph`.
+    /// call_function `Node` represents a call to a Python callable,
+    /// specified by `the_function`.
+    ///
+    /// This does the same what [`call_function`][call_function] instance method
+    /// of `Graph` PyTorch class does, but `type_expr` is not given (`None`) and
+    /// the `name` for the name of this node is given.
+    ///
+    /// If the creation and insertion of the `Node` is done successfully,
+    /// returns `Ok` with a shared reference to the newly created `Node` in
+    /// it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will
+    /// explain the cause of the failure.
+    ///
+    /// [call_function]: https://pytorch.org/docs/stable/fx.html#torch.fx.Graph.call_function
+    pub fn call_python_function<S: AsRef<str>>(
+        &self,
+        name: S,
+        the_function: Py<PyAny>,
+        args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
+        kwargs: impl IntoIterator<Item = (String, Argument)>,
+    ) -> PyResult<&Node> {
+        self.create_node(
+            Op::CallFunction,
+            Target::Callable(the_function),
             args,
             kwargs,
             name.as_ref(),

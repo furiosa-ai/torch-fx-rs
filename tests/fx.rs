@@ -175,7 +175,7 @@ fn unittest_custom_fn() -> PyResult<()> {
         let callable_fn = py.import("builtins")?.getattr("callable")?;
         assert!(callable_fn.call1((custom_fn_in_py,))?.extract()?);
 
-        g.call_custom_fn("test", custom_fn, None, None)?;
+        g.call_custom_function("test", custom_fn, None, None)?;
         Ok(())
     })
 }
@@ -189,11 +189,11 @@ fn unittest_users_and_flatten_node_args() -> PyResult<()> {
 
         let custom_fn = CustomFn::new("empty_fn", generate_empty_fn());
         let n1_name = g
-            .call_custom_fn("test", custom_fn.clone(), vec![], None)?
+            .call_custom_function("test", custom_fn.clone(), vec![], None)?
             .name()?
             .clone();
         let n2_name = g
-            .call_custom_fn(
+            .call_custom_function(
                 "test_2",
                 custom_fn,
                 vec![Argument::Node(n1_name.clone())],
