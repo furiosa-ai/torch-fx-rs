@@ -405,6 +405,20 @@ impl Graph {
         Ok(self.call_method1("node_copy", (node, f))?.downcast()?)
     }
 
+    pub fn erase_node(&self, node: &Node) -> PyResult<()> {
+        self.call_method1("erase_node", (node,)).map(|_| ())
+    }
+
+    pub fn erase_node_by_name<S: AsRef<str>>(&self, name: S) -> PyResult<()> {
+        let node = self
+            .lookup_node(name.as_ref().to_string())?
+            .ok_or(PyRuntimeError::new_err(format!(
+                "no such node: \"{}\"",
+                name.as_ref()
+            )))?;
+        self.call_method1("erase_node", (node,)).map(|_| ())
+    }
+
     /// Retrieve the names of argument `Node`s of the `Node` named
     /// as the value of `node_name` in this `Graph`.
     ///
