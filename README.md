@@ -170,14 +170,14 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the method call is done successfully, returns `Ok(())`. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn create_node<S: AsRef<str>>(
+    pub fn create_node_with_meta<S: AsRef<str>>(
         &self,
         op: Op,
         target: Target,
         args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
         kwargs: impl IntoIterator<Item = (String, Argument)>,
         name: S,
-        meta: HashMap<String, PyObject>,
+        meta: Option<HashMap<String, PyObject>>,
     ) -> PyResult<&Node>
     ```
 
@@ -186,7 +186,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the method call is done successfully, returns `Ok` with a shared reference to the newly created [`Node`](#pub-struct-node) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn new_placeholder<S: AsRef<str>>(
+    pub fn placeholder_with_name<S: AsRef<str>>(
         &self,
         name: S
     ) -> PyResult<&Node>
@@ -199,7 +199,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the creation and insertion of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) is done successfully, returns `Ok` with a shared reference to the newly created [`Node`](#pub-struct-node) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn new_output(
+    pub fn output(
         &self,
         args: Argument
     ) -> PyResult<&Node>
@@ -212,12 +212,12 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If the creation and insertion of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) is done successfully, returns `Ok` with a shared reference to the newly created [`Node`](#pub-struct-node) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn new_custom_fn<S: AsRef<str>>(
+    pub fn call_custom_fn_with_name<S: AsRef<str>>(
         &self,
         name: S,
+        custom_fn: CustomFn,
         args: impl IntoIterator<IntoIter = impl ExactSizeIterator<Item = Argument>>,
         kwargs: impl IntoIterator<Item = (String, Argument)>,
-        custom_fn: CustomFn,
     ) -> PyResult<&Node>
     ```
 
@@ -277,7 +277,7 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If stringifying is done successfully, returns `Ok` with the resulting string in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn named_nodes(&self)
+    pub fn extract_named_nodes(&self)
         -> PyResult<IndexMap<String, &Node>>
     ```
 
