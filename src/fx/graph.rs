@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fmt::{self, Error},
     ops::Deref,
+    sync::Arc,
 };
 
 use indexmap::IndexMap;
@@ -12,7 +13,11 @@ use pyo3::{
     Python, ToPyObject,
 };
 
-use crate::fx::{custom_fn::CustomFn, node::Node, Argument, Op, Target};
+use crate::fx::{
+    custom_fn::{CustomFn, FunctionWrapper},
+    node::Node,
+    Argument, Op, Target,
+};
 
 /// A wrapper for PyTorch's [`Graph`][graph] class.
 ///
@@ -302,53 +307,23 @@ impl Graph {
         node: &Node,
         mapper: Option<&HashMap<String, String>>,
     ) -> PyResult<&Node> {
-        let mut args = node.args()?;
-        if let Some(mapper) = mapper {
-            args = args
-                .iter()
-                .map(|arg| match arg {
-                    Argument::Node(name) => {
-                        let mapped = mapper.get(name).ok_or(PyRuntimeError::new_err(format!(
-                            "Failed to get mapped arg from mapper {name:?}",
-                        )))?;
-                        Ok(Argument::Node(mapped.clone()))
-                    }
-                    Argument::NodeTuple(names) => {
-                        let mapped = names
-                            .iter()
-                            .map(|name| {
-                                let mapped = mapper.get(name).ok_or(PyRuntimeError::new_err(
-                                    format!("Failed to get mapped arg from mapper {name:?}"),
-                                ))?;
-                                Ok(mapped.clone())
-                            })
-                            .collect::<PyResult<Vec<_>>>()?;
-                        Ok(Argument::NodeTuple(mapped))
-                    }
-                    Argument::NodeList(names) => {
-                        let mapped = names
-                            .iter()
-                            .map(|name| {
-                                let mapped = mapper.get(name).ok_or(PyRuntimeError::new_err(
-                                    format!("Failed to get mapped arg from mapper {name:?}"),
-                                ))?;
-                                Ok(mapped.clone())
-                            })
-                            .collect::<PyResult<Vec<_>>>()?;
-                        Ok(Argument::NodeList(mapped))
-                    }
-                    others => Ok(others.clone()),
-                })
-                .collect::<PyResult<Vec<Argument>>>()?;
-        }
-        self.create_node(
-            node.op()?,
-            node.target()?,
-            args,
-            node.kwargs()?,
-            node.name()?,
-            node.meta()?,
-        )
+        let graph: Py<Graph> = self.into();
+        let f: FunctionWrapper = if let Some(mapper) = mapper {
+            let mapper = mapper.clone();
+            Arc::new(move |args, _| {
+                let name = args.get_item(0)?.downcast::<Node>()?.name()?;
+                let mapped = mapper.get(&name).ok_or(PyRuntimeError::new_err(format!(
+                    "Failed to get mapped arg from mapper {name:?}"
+                )))?;
+                let graph = graph.as_ref(args.py());
+                let mapped = graph.lookup_node(mapped.clone())?.unwrap();
+                Ok(mapped.into())
+            })
+        } else {
+            Arc::new(|args, _| Ok(args.get_item(0)?.into()))
+        };
+        let f = CustomFn::new("f", f);
+        Ok(self.call_method1("node_copy", (node, f))?.downcast()?)
     }
 
     /// Retrieve the names of argument `Node`s of the `Node` named
