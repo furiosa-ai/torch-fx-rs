@@ -7,7 +7,7 @@ use std::{
 
 use indexmap::IndexMap;
 use pyo3::{
-    exceptions::{PyRuntimeError, PyTypeError},
+    exceptions::{PyAttributeError, PyRuntimeError, PyTypeError},
     types::{PyDict, PyIterator, PyList, PyTuple},
     AsPyPointer, FromPyObject, IntoPy, Py, PyAny, PyNativeType, PyObject, PyResult, PyTypeInfo,
     Python, ToPyObject,
@@ -367,6 +367,66 @@ impl Graph {
         )
     }
 
+    pub fn fetch_attr<S1: AsRef<str>, S2: AsRef<str>>(
+        &self,
+        name: S1,
+        qualified_name: S2,
+    ) -> PyResult<&Node> {
+        let py = self.py();
+        let qname: PyObject = qualified_name.as_ref().into_py(self.py());
+        let owning_module = self.getattr("owning_module")?;
+        if owning_module.is_true()? {
+            let qname = qname.as_ref(self.py());
+            let (module_path, pname) = {
+                let tuple: &PyTuple = qname.call_method1("rpartition", (".",))?.downcast()?;
+                (tuple.get_item(0)?, tuple.get_item(2)?)
+            };
+            let get_attr_reference_exists =
+                match owning_module.call_method1("get_submodule", (module_path,)) {
+                    // TODO
+                    Ok(submod) => {
+                        let pname_str = pname.extract::<String>()?;
+                        if !(submod.hasattr(pname_str.as_str())?) {
+                            false
+                        } else {
+                            let res = submod.getattr(pname_str.as_str())?;
+                            let nn = py.import("torch.nn")?;
+                            !(!(res.is_instance(nn.getattr("Module")?)?)
+                                && !(res.is_instance(nn.getattr("Parameter")?)?)
+                                && !(submod.getattr("_buffers")?.contains(pname)?))
+                        }
+                    }
+                    Err(e) => {
+                        if e.is_instance_of::<PyAttributeError>(py) {
+                            py.import("warnings")?.getattr("warn")?.call1((format!(
+                                "Failed to fetch module {}",
+                                module_path.extract::<String>()?
+                            ),))?;
+                            false
+                        } else {
+                            return Err(e);
+                        }
+                    }
+                };
+            if get_attr_reference_exists {
+                let kwargs = PyDict::new(py);
+                kwargs.set_item("stacklevel", 2)?;
+                py.import("warnings")?.getattr("warn")?.call(
+                    ("Attempted to insert a get_attr Node with no underlying reference in the owning GraphModule! Call GraphModule.add_submodule to add the necessary submodule, GraphModule.add_parameter to add the necessary Parameter, or nn.Module.register_buffer to add the necessary buffer",),
+                    Some(kwargs),
+                )?;
+            }
+        }
+        self.create_node(
+            Op::GetAttr,
+            Target::Str(qname.extract::<String>(py)?),
+            None,
+            None,
+            name,
+            None,
+        )
+    }
+
     /// Copy a `Node` from another `Graph` into this `Graph`(`self`).
     /// `node` is the node to copy into `self`.
     /// `mapper` needs to transform arguments
@@ -411,7 +471,7 @@ impl Graph {
 
     pub fn erase_node_by_name<S: AsRef<str>>(&self, name: S) -> PyResult<()> {
         let node = self
-            .lookup_node(name.as_ref().to_string())?
+            .lookup_node(name.as_ref())?
             .ok_or(PyRuntimeError::new_err(format!(
                 "no such node: \"{}\"",
                 name.as_ref()
