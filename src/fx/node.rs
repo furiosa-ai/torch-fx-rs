@@ -208,41 +208,24 @@ impl Node {
 
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[derive(Debug)]
-        #[allow(unused)]
-        struct Node {
-            origin: PyObject,
-            name: String,
-            op: Op,
-            target: Target,
-            args: Vec<Argument>,
-            kwargs: HashMap<String, Argument>,
-            stack_trace: Option<PyObject>,
-            meta: HashMap<String, PyObject>,
-            tensor_meta: Option<Vec<TensorMeta>>,
-            users: Vec<String>,
-        }
-
-        let (meta, tensor_meta) = self.extract_meta_tensor_meta().map_err(|_| Error)?;
-        write!(
-            f,
-            "{:?}",
-            Node {
-                origin: PyObject::from(self),
-                name: self.name().map_err(|_| Error)?,
-                op: self.op().map_err(|_| Error)?,
-                target: self.target().map_err(|_| Error)?,
-                args: self.args().map_err(|_| Error)?,
-                kwargs: self.kwargs().map_err(|_| Error)?,
-                stack_trace: self
-                    .getattr("stack_trace")
-                    .map_err(|_| Error)?
-                    .extract()
-                    .map_err(|_| Error)?,
-                meta,
-                tensor_meta,
-                users: self.extract_users().map_err(|_| Error)?
-            }
-        )
+        (|| -> PyResult<fmt::Result> {
+            let (meta, tensor_meta) = self.extract_meta_tensor_meta()?;
+            Ok(f.debug_struct("Node")
+                .field("origin", &PyObject::from(self))
+                .field("name", &self.name()?)
+                .field("op", &self.op()?)
+                .field("target", &self.target())
+                .field("args", &self.args())
+                .field("kwargs", &self.kwargs()?)
+                .field(
+                    "stack_trace",
+                    &self.getattr("stack_trace")?.extract::<Option<PyObject>>()?,
+                )
+                .field("meta", &meta)
+                .field("tensor_meta", &tensor_meta)
+                .field("users", &self.extract_users()?)
+                .finish())
+        })()
+        .map_err(|_| Error)?
     }
 }

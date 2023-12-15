@@ -641,20 +641,12 @@ impl Graph {
 
 impl fmt::Debug for Graph {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[derive(Debug)]
-        #[allow(unused)]
-        struct Graph<'a> {
-            origin: PyObject,
-            named_nodes: IndexMap<String, &'a Node>,
-        }
-
-        write!(
-            f,
-            "{:?}",
-            Graph {
-                origin: PyObject::from(self),
-                named_nodes: self.extract_named_nodes().map_err(|_| Error)?
-            }
-        )
+        f.debug_struct("Graph")
+            .field("origin", &PyObject::from(self))
+            .field(
+                "named_nodes",
+                &self.extract_named_nodes().map_err(|_| Error)?,
+            )
+            .finish()
     }
 }
