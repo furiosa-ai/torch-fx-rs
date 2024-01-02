@@ -1,0 +1,12 @@
+# Cargo
+/Cargo.lock
+/target
+
+# Python
+/.python-version
+
+# MacOS
+.DS_Store
+
+# VSCode
+.vscode
