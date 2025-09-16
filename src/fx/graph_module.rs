@@ -128,33 +128,33 @@ impl GraphModule {
         Ok(gm.downcast()?)
     }
 
-    /// Collect all parameters of this `GraphModule`.
+    /// Collect all parameters as zero‑copy views with lifetimes tied to the GIL.
     ///
-    /// Make a `HashMap` which maps the parameter name
-    /// to a slice representing the underlying storage of the parameter value.
-    ///
-    /// If this process is done successfully, returns `Ok` with the `HashMap` in it.
-    /// Otherwise, return `Err` with a `PyErr` in it.
-    /// `PyErr` will explain the cause of the failure.
-    pub fn extract_parameters(&self) -> PyResult<HashMap<String, &[u8]>> {
+    /// Unlike [`extract_parameters`], this returns views which are lifetime‑bound
+    /// to the provided `py` token, making it safe to use without pretending a
+    /// `'static` lifetime.
+    pub fn extract_parameters_view<'py>(
+        &'py self,
+        _py: Python<'py>,
+    ) -> PyResult<HashMap<String, BufferView<'py>>> {
         self.get_parameters_pydict()?
             .into_iter()
-            .map(|(k, v)| Ok((k.extract::<String>()?, value_to_slice(v)?)))
+            .map(|(k, v)| Ok((k.extract::<String>()?, value_to_view(v)?)))
             .collect()
     }
 
-    /// Collect all buffers of this `GraphModule`.
+    /// Collect all buffers as zero‑copy views with lifetimes tied to the GIL.
     ///
-    /// Make a `HashMap` which maps the buffer name
-    /// to a slice representing the underlying storage of the buffer value.
-    ///
-    /// If this process is done successfully, returns `Ok` with the `HashMap` in it.
-    /// Otherwise, return `Err` with a `PyErr` in it.
-    /// `PyErr` will explain the cause of the failure.
-    pub fn extract_buffers(&self) -> PyResult<HashMap<String, &[u8]>> {
+    /// Unlike [`extract_buffers`], this returns views which are lifetime‑bound
+    /// to the provided `py` token, making it safe to use without pretending a
+    /// `'static` lifetime.
+    pub fn extract_buffers_view<'py>(
+        &'py self,
+        _py: Python<'py>,
+    ) -> PyResult<HashMap<String, BufferView<'py>>> {
         self.get_buffers_pydict()?
             .into_iter()
-            .map(|(k, v)| Ok((k.extract::<String>()?, value_to_slice(v)?)))
+            .map(|(k, v)| Ok((k.extract::<String>()?, value_to_view(v)?)))
             .collect()
     }
 
@@ -168,17 +168,14 @@ impl GraphModule {
         Ok(self.getattr("graph")?.downcast()?)
     }
 
-    /// Get the underlying storage of the parameter value named as the value of `name`,
-    /// for this `GraphModule`.
-    ///
-    /// If there is no parameter named as the value of `name`, returns `Ok(None)`.
-    /// If there exists such parameter, returns `Ok(Some)` with a slice representing
-    /// the underlying storage of the parameter value.
-    /// If this process fails, returns `Err` with a `PyErr` in it.
-    /// `PyErr` will explain the cause of the failure.
-    pub fn get_parameter(&self, name: &str) -> PyResult<Option<&[u8]>> {
+    /// Zero‑copy parameter view whose lifetime is tied to the GIL.
+    pub fn get_parameter_view<'py>(
+        &'py self,
+        _py: Python<'py>,
+        name: &str,
+    ) -> PyResult<Option<BufferView<'py>>> {
         let found = self.get_parameters_pydict()?.get_item_with_error(name)?;
-        found.map(value_to_slice).transpose()
+        found.map(value_to_view).transpose()
     }
 
     /// Get the number of parameters of this `GraphModule`.
@@ -192,17 +189,14 @@ impl GraphModule {
         Ok(self.get_parameters_pydict()?.len())
     }
 
-    /// Get the underlying storage of the buffer value named as the value of `name`,
-    /// for this `GraphModule`.
-    ///
-    /// If there is no buffer named as the value of `name`, returns `Ok(None)`.
-    /// If there exists such buffer, returns `Ok(Some)` with a slice representing
-    /// the underlying storage of the buffer value.
-    /// If this process fails, returns `Err` with a `PyErr` in it.
-    /// `PyErr` will explain the cause of the failure.
-    pub fn get_buffer(&self, name: &str) -> PyResult<Option<&[u8]>> {
+    /// Zero‑copy buffer view whose lifetime is tied to the GIL.
+    pub fn get_buffer_view<'py>(
+        &'py self,
+        _py: Python<'py>,
+        name: &str,
+    ) -> PyResult<Option<BufferView<'py>>> {
         let found = self.get_buffers_pydict()?.get_item_with_error(name)?;
-        found.map(value_to_slice).transpose()
+        found.map(value_to_view).transpose()
     }
 
     /// Get the number of buffers of this `GraphModule`.
@@ -249,12 +243,36 @@ impl fmt::Debug for GraphModule {
     }
 }
 
+// value_to_slice removed in favor of lifetime‑bound BufferView
+
+/// A zero‑copy, read‑only view into a Python tensor's underlying storage.
+///
+/// The view is lifetime‑bound to the GIL token used to produce it, ensuring the
+/// underlying Python object outlives any slice produced from this view.
+pub struct BufferView<'py> {
+    owner: Py<PyAny>,
+    slice: &'py [u8],
+}
+
+impl<'py> Deref for BufferView<'py> {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        // Touch owner so the field counts as read and to
+        // emphasize the lifetime tie to the Python object.
+        let _ = &self.owner;
+        self.slice
+    }
+}
+
 #[inline]
-fn value_to_slice(v: &PyAny) -> PyResult<&'static [u8]> {
+fn value_to_view<'py>(v: &'py PyAny) -> PyResult<BufferView<'py>> {
     let offset = v.getattr("storage_offset")?.call0()?.extract::<usize>()?
         * v.getattr("element_size")?.call0()?.extract::<usize>()?;
     let storage = v.getattr("untyped_storage")?.call0()?;
     let ptr = storage.getattr("data_ptr")?.call0()?.extract::<usize>()? + offset;
     let len = storage.getattr("nbytes")?.call0()?.extract::<usize>()? - offset;
-    Ok(unsafe { slice::from_raw_parts(ptr as *const u8, len) })
+    let py = v.py();
+    let owner: Py<PyAny> = v.into_py(py);
+    let slice: &'py [u8] = unsafe { slice::from_raw_parts(ptr as *const u8, len) };
+    Ok(BufferView { owner, slice })
 }
