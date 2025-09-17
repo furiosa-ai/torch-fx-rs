@@ -158,6 +158,34 @@ impl GraphModule {
             .collect()
     }
 
+    /// Iterate parameters as `(name, BufferView)` without materializing a map.
+    pub fn iter_parameters_view<'py>(
+        &'py self,
+        _py: Python<'py>,
+    ) -> PyResult<impl Iterator<Item = PyResult<(String, BufferView<'py>)>> + 'py> {
+        let dict = self.get_parameters_pydict()?;
+        let keys: Vec<String> = dict
+            .keys()
+            .into_iter()
+            .map(|k| k.extract())
+            .collect::<PyResult<_>>()?;
+        Ok(DictViewIter { dict, keys, idx: 0 })
+    }
+
+    /// Iterate buffers as `(name, BufferView)` without materializing a map.
+    pub fn iter_buffers_view<'py>(
+        &'py self,
+        _py: Python<'py>,
+    ) -> PyResult<impl Iterator<Item = PyResult<(String, BufferView<'py>)>> + 'py> {
+        let dict = self.get_buffers_pydict()?;
+        let keys: Vec<String> = dict
+            .keys()
+            .into_iter()
+            .map(|k| k.extract())
+            .collect::<PyResult<_>>()?;
+        Ok(DictViewIter { dict, keys, idx: 0 })
+    }
+
     /// Retrieve the `graph` attribute of this `GraphModule`.
     ///
     /// If the retrieval is done successfully, returns `Ok` with a shared reference
@@ -275,4 +303,28 @@ fn value_to_view<'py>(v: &'py PyAny) -> PyResult<BufferView<'py>> {
     let owner: Py<PyAny> = v.into_py(py);
     let slice: &'py [u8] = unsafe { slice::from_raw_parts(ptr as *const u8, len) };
     Ok(BufferView { owner, slice })
+}
+
+struct DictViewIter<'py> {
+    dict: &'py PyDict,
+    keys: Vec<String>,
+    idx: usize,
+}
+
+impl<'py> Iterator for DictViewIter<'py> {
+    type Item = PyResult<(String, BufferView<'py>)>;
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.idx < self.keys.len() {
+            let key = self.keys[self.idx].clone();
+            self.idx += 1;
+            match self.dict.get_item(&key) {
+                Some(v) => match value_to_view(v) {
+                    Ok(view) => return Some(Ok((key, view))),
+                    Err(e) => return Some(Err(e)),
+                },
+                None => continue,
+            }
+        }
+        None
+    }
 }

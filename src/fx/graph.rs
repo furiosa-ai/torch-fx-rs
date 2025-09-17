@@ -497,6 +497,30 @@ impl Graph {
         }
     }
 
+    /// Retrieve argument Nodes of the Node named `node_name` without copying names.
+    ///
+    /// Returns `Ok(None)` if no such Node exists. Otherwise returns a list of
+    /// `&Node` references for each argument Node, preserving Python object identity.
+    pub fn flatten_node_args_nodes<S: AsRef<str>>(
+        &self,
+        node_name: S,
+    ) -> PyResult<Option<Vec<&Node>>> {
+        let named_nodes = self.extract_named_nodes()?;
+        match named_nodes.get(node_name.as_ref()) {
+            Some(node) => {
+                let names = node.downcast::<Node>()?.flatten_node_args()?;
+                let mut out = Vec::with_capacity(names.len());
+                for n in names {
+                    if let Some(arg) = named_nodes.get(&n) {
+                        out.push(*arg);
+                    }
+                }
+                Ok(Some(out))
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Retrieve the names of user `Node`s of the `Node` named
     /// as the value of `node_name` in this `Graph`.
     ///
@@ -518,6 +542,30 @@ impl Graph {
                         .map(|r| r?.getattr("name")?.extract())
                         .collect::<PyResult<Vec<String>>>()?,
                 ))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Retrieve user Nodes of the Node named `node_name` without copying names.
+    ///
+    /// Returns `Ok(None)` if no such Node exists. Otherwise returns a list of
+    /// `&Node` references for each user Node.
+    pub fn users_nodes<S: AsRef<str>>(&self, node_name: S) -> PyResult<Option<Vec<&Node>>> {
+        let named_nodes = self.extract_named_nodes()?;
+        match named_nodes.get(node_name.as_ref()) {
+            Some(node) => {
+                let user_keys = node.getattr("users")?.getattr("keys")?.call0()?;
+                let mut out = Vec::new();
+                for r in user_keys.iter()? {
+                    let py_node: &Node = r?.downcast()?;
+                    // Map back to existing named_nodes to return stable refs from this graph.
+                    let name: String = py_node.getattr("name")?.extract()?;
+                    if let Some(n) = named_nodes.get(&name) {
+                        out.push(*n);
+                    }
+                }
+                Ok(Some(out))
             }
             None => Ok(None),
         }

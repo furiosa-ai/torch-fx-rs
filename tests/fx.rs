@@ -208,6 +208,37 @@ fn unittest_users_and_flatten_node_args() -> PyResult<()> {
 }
 
 #[test]
+fn unittest_users_and_flatten_node_args_nodes() -> PyResult<()> {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| -> PyResult<()> {
+        let g = Graph::new(py)?;
+
+        let custom_fn = CustomFn::new("empty_fn", generate_empty_fn());
+        let n1 = g.call_custom_function("test", custom_fn.clone(), vec![], None)?;
+        let n1_name = n1.name()?;
+        let n2 = g.call_custom_function(
+            "test_2",
+            custom_fn,
+            vec![Argument::Node(n1_name.clone())],
+            None,
+        )?;
+        let n2_name = n2.name()?;
+
+        // args_nodes returns first node
+        let args_nodes = g.flatten_node_args_nodes(&n2_name)?.unwrap();
+        assert_eq!(args_nodes.len(), 1);
+        assert_eq!(args_nodes[0].name()?, n1_name);
+
+        // users_nodes of n1 returns n2
+        let users_nodes = g.users_nodes(n1_name)?.unwrap();
+        assert_eq!(users_nodes.len(), 1);
+        assert_eq!(users_nodes[0].name()?, n2_name);
+        Ok(())
+    })
+}
+
+#[test]
 fn unittest_extract_buffers_python() -> PyResult<()> {
     pyo3::prepare_freethreaded_python();
 
@@ -290,6 +321,48 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
             gm.get_parameter_view(py, "param_buf")?.unwrap().len(),
             8 * 4
         );
+        Ok(())
+    })
+}
+
+#[test]
+fn unittest_iter_views_rust() -> PyResult<()> {
+    pyo3::prepare_freethreaded_python();
+
+    Python::with_gil(|py| -> PyResult<()> {
+        let gm = GraphModule::new_with_empty_gm(py, {
+            let graph = Graph::new(py)?;
+            let i0 = graph.placeholder("i0")?;
+            let _g0 = graph.create_node(
+                Op::CallFunction,
+                Target::BuiltinFn(
+                    "getitem".to_string(),
+                    py.import("operator")?.getattr("getitem")?.into_py(py),
+                ),
+                vec![Argument::Value(i0.into_py(py)), Argument::Int(0)],
+                None,
+                "getitem_0",
+                None,
+            )?;
+            graph.output(Argument::NodeTuple(vec!["getitem_0".to_string()]))?;
+            graph
+        })?;
+
+        let torch = py.import("torch")?;
+        gm.getattr("_buffers")?
+            .set_item("buf_iter", torch.getattr("randn")?.call1((4,))?)?;
+        gm.getattr("_parameters")?
+            .set_item("param_iter", torch.getattr("randn")?.call1((8,))?)?;
+
+        let params = gm.iter_parameters_view(py)?.collect::<PyResult<Vec<_>>>()?;
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0].0, "param_iter");
+        assert_eq!(params[0].1.len(), 8 * 4);
+
+        let bufs = gm.iter_buffers_view(py)?.collect::<PyResult<Vec<_>>>()?;
+        assert_eq!(bufs.len(), 1);
+        assert_eq!(bufs[0].0, "buf_iter");
+        assert_eq!(bufs[0].1.len(), 4 * 4);
         Ok(())
     })
 }
