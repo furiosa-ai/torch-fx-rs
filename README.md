@@ -84,7 +84,7 @@ The constructor method of this returns a shared reference [`&GraphModule`](#pub-
 
     Get a zero-copy view into the underlying storage of the parameter named `name`. Since `BufferView` dereferences to `[u8]`, you can use methods like `view.len()` or pass `&*view` where a slice is expected.
     
-    Returns `Ok(None)` if absent, or `Ok(Some(TensorView<'py>))` if present. No data is copied.
+    Returns `Ok(None)` if absent, or `Ok(Some(BufferView<'py>))` if present. No data is copied.
 
 *   ```rust
     pub fn count_parameters(&self) -> PyResult<usize>
@@ -104,7 +104,51 @@ The constructor method of this returns a shared reference [`&GraphModule`](#pub-
 
     Get a zero-copy view into the underlying storage of the buffer named `name`. Since `BufferView` dereferences to `[u8]`, you can use methods like `view.len()` or pass `&*view` where a slice is expected.
     
-    Returns `Ok(None)` if absent, or `Ok(Some(TensorView<'py>))` if present. No data is copied.
+    Returns `Ok(None)` if absent, or `Ok(Some(BufferView<'py>))` if present. No data is copied.
+
+#### Zero-Copy Views: Safety & Usage
+
+`BufferView<'py>` provides read-only, zero-copy access to a tensor's underlying storage.
+
+- Lifetime: the view is tied to the GIL token (`Python<'py>`) used to create it. Do not store it beyond the GIL scope. If you need to persist the data, copy it via `&*view` into an owned buffer.
+- Read-only: do not mutate the underlying tensor while a view is held. Treat the view as immutable bytes.
+- Strided tensors: views represent the storage range backing the tensor, not logical shape. Use separate metadata (e.g., `TensorMeta`) to reason about shape/stride.
+
+Example:
+
+```rust
+pyo3::prepare_freethreaded_python();
+Python::with_gil(|py| {
+    let gm = GraphModule::new_with_empty_gm(py, Graph::new(py).unwrap()).unwrap();
+    // Assume gm has a parameter "w"
+    if let Some(view) = gm.get_parameter_view(py, "w").unwrap() {
+        // Safe to read within the GIL scope
+        let len = view.len();
+        let first = view[0];
+        // If you need to keep data, copy it out
+        let owned: Vec<u8> = view.to_vec();
+        drop((len, first, owned));
+    }
+});
+```
+
+*   ```rust
+    pub fn iter_parameters_view<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<impl Iterator<Item = PyResult<(String, BufferView<'py>)>> + 'py>
+    ```
+
+    Iterate parameters lazily as `(name, BufferView)`, avoiding intermediate `HashMap` allocation. Each item is a `PyResult` to surface Python interop errors during iteration.
+
+*   ```rust
+    pub fn iter_buffers_view<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<impl Iterator<Item = PyResult<(String, BufferView<'py>)>> + 'py>
+    ```
+
+    Iterate buffers lazily as `(name, BufferView)` with zero-copy semantics.
 
 *   ```rust
     pub fn count_buffers(&self) -> PyResult<usize>
@@ -273,6 +317,15 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     If this graph doesn't have a [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) named as the value of `node_name`, returns `Ok(None)`. If this graph have a [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) named as the value of `node_name`, returns `Ok(Some)` with a `Vec` of names of argument [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node)s of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node), in the `Some`. If something fails while looking into this [`Graph`](#pub-struct-graph), returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
+    pub fn flatten_node_args_nodes<S: AsRef<str>>(
+        &self,
+        node_name: S,
+    ) -> PyResult<Option<Vec<&Node>>>
+    ```
+
+    Retrieve the argument nodes of `node_name` as borrowed `&Node` references, avoiding string copies. Returns `Ok(None)` if the node does not exist.
+
+*   ```rust
     pub fn users<S: AsRef<str>>(
         &self,
         node_name: S
@@ -282,6 +335,15 @@ The constructor method of this returns a shared reference [`&Graph`](#pub-struct
     Retrieve the names of user [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node)s of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) named as the value of `node_name` in this [`Graph`](#pub-struct-graph).
     
     If this graph doesn't have a [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) named as the value of `node_name`, returns `Ok(None)`. If this graph have a [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node) named as the value of `node_name`, returns `Ok(Some)` with a `Vec` of names of user [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node)s of the [`Node`](https://pytorch.org/docs/stable/fx.html#torch.fx.Node), in the `Some`. If something fails while looking into this `Graph`, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
+
+*   ```rust
+    pub fn users_nodes<S: AsRef<str>>(
+        &self,
+        node_name: S
+    ) -> PyResult<Option<Vec<&Node>>>
+    ```
+
+    Retrieve user nodes of `node_name` as borrowed `&Node` references without copying names. Returns `Ok(None)` if the node does not exist.
 
 *   ```rust
     pub fn graph_to_string(
