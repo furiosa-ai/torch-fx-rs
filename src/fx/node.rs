@@ -5,8 +5,8 @@ use std::{
 };
 
 use pyo3::{
-    AsPyPointer, FromPyObject, IntoPy, Py, PyAny, PyNativeType, PyObject, PyResult, PyTypeInfo,
-    Python, ToPyObject,
+    types::PyDict, AsPyPointer, FromPyObject, IntoPy, Py, PyAny, PyNativeType, PyObject, PyResult,
+    PyTypeInfo, Python, ToPyObject,
 };
 
 use crate::fx::{Argument, Op, Target, TensorMeta};
@@ -181,6 +181,18 @@ impl Node {
             meta.extract()
         } else {
             Ok(Default::default())
+        }
+    }
+
+    /// Retrieve the meta dictionary as a Python mapping without copying.
+    ///
+    /// Returns `Ok(Some(&PyDict))` if `self.meta` exists and is a dict,
+    /// `Ok(None)` if no `meta` attribute exists.
+    pub fn meta_pydict(&self) -> PyResult<Option<&PyDict>> {
+        if let Ok(meta) = self.getattr("meta") {
+            Ok(Some(meta.downcast::<PyDict>()?))
+        } else {
+            Ok(None)
         }
     }
 

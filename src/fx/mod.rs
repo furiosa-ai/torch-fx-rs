@@ -546,6 +546,6 @@ mod types {
 
 pub use custom_fn::{CustomFn, FunctionWrapper};
 pub use graph::Graph;
-pub use graph_module::GraphModule;
+pub use graph_module::{BufferView, GraphModule};
 pub use node::Node;
 pub use types::{Argument, Device, Dtype, MemoryFormat, Op, Target, TensorMeta};

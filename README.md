@@ -45,26 +45,26 @@ The constructor method of this returns a shared reference [`&GraphModule`](#pub-
     If new instance is created succesfully, returns `Ok` with a shared reference to the newly created instance in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn extract_parameters(&self)
-        -> PyResult<HashMap<String, &[u8]>>
+    pub fn extract_parameters_view<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<HashMap<String, BufferView<'py>>>
     ```
 
-    Collect all parameters of this [`GraphModule`](#pub-struct-graphmodule).
+    Collect all parameters of this [`GraphModule`](#pub-struct-graphmodule) as zero-copy views.
 
-    Make a `HashMap` which maps the parameter name to a slice representing the underlying storage of the parameter value.
-
-    If this process is successful, returns `Ok` with the `HashMap` in it. Otherwise, return `Err` with a `PyErr` in it. `PyErr` will explain the cause of the failure.
+    Returns a `HashMap` mapping parameter names to `BufferView<'py>` values, whose lifetimes are tied to the provided GIL token. No data is copied.
 
 *   ```rust
-    pub fn extract_buffers(&self)
-        -> PyResult<HashMap<String, &[u8]>>
+    pub fn extract_buffers_view<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<HashMap<String, BufferView<'py>>>
     ```
 
-    Collect all buffers of this [`GraphModule`](#pub-struct-graphmodule).
+    Collect all buffers of this [`GraphModule`](#pub-struct-graphmodule) as zero-copy views.
 
-    Make a `HashMap` which maps the buffer name to a slice representing the underlying storage of the buffer value.
-
-    If this process is successful, returns `Ok` with the `HashMap` in it. Otherwise, return `Err` with a `PyErr` in it. `PyErr` will explain the cause of the failure.
+    Returns a `HashMap` mapping buffer names to `BufferView<'py>` values, lifetime-bound to `py`. No data is copied.
 
 *   ```rust
     pub fn graph(&self) -> PyResult<&Graph>
@@ -75,15 +75,16 @@ The constructor method of this returns a shared reference [`&GraphModule`](#pub-
     If the retrieval is done successfully, returns `Ok` with a shared reference to the `graph` attribute (`&Graph`) in it. Otherwise, returns `Err` with a `PyErr` in it. The `PyErr` will explain the cause of the failure.
 
 *   ```rust
-    pub fn get_parameter(
+    pub fn get_parameter_view<'py>(
         &self,
+        py: Python<'py>,
         name: &str
-    ) -> PyResult<Option<&[u8]>>
+    ) -> PyResult<Option<BufferView<'py>>>
     ```
 
-    Get the underlying storage of the parameter value named as the value of `name`, for this [`GraphModule`](#pub-struct-graphmodule).
+    Get a zero-copy view into the underlying storage of the parameter named `name`. Since `BufferView` dereferences to `[u8]`, you can use methods like `view.len()` or pass `&*view` where a slice is expected.
     
-    If there is no parameter named as the value of `name`, returns `Ok(None)`. If there exists such parameter, returns `Ok(Some)` with a slice representing the underlying storage of the parameter value. If this process fails, returns `Err` with a `PyErr` in it. `PyErr` will explain the cause of the failure.
+    Returns `Ok(None)` if absent, or `Ok(Some(TensorView<'py>))` if present. No data is copied.
 
 *   ```rust
     pub fn count_parameters(&self) -> PyResult<usize>
@@ -94,15 +95,16 @@ The constructor method of this returns a shared reference [`&GraphModule`](#pub-
     If a Python error occurs during this procedure, returns `Err` with a `PyErr` in it. `PyErr` will explain the error. Otherwise, returns `Ok` with the number of parameters of this [`GraphModule`](#pub-struct-graphmodule) in it.
 
 *   ```rust
-    pub fn get_buffer(
+    pub fn get_buffer_view<'py>(
         &self,
+        py: Python<'py>,
         name: &str
-    ) -> PyResult<Option<&[u8]>>
+    ) -> PyResult<Option<BufferView<'py>>>
     ```
 
-    Get the underlying storage of the buffer value named as the value of `name`, for this [`GraphModule`](#pub-struct-graphmodule).
+    Get a zero-copy view into the underlying storage of the buffer named `name`. Since `BufferView` dereferences to `[u8]`, you can use methods like `view.len()` or pass `&*view` where a slice is expected.
     
-    If there is no buffer named as the value of `name`, returns `Ok(None)`. If there exists such buffer, returns `Ok(Some)` with a slice representing the underlying storage of the buffer value. If this process fails, returns `Err` with a `PyErr` in it. `PyErr` will explain the cause of the failure.
+    Returns `Ok(None)` if absent, or `Ok(Some(TensorView<'py>))` if present. No data is copied.
 
 *   ```rust
     pub fn count_buffers(&self) -> PyResult<usize>

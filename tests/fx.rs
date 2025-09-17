@@ -233,12 +233,18 @@ gm._parameters["param_buf"] = torch.randn(8)
         )?;
         let gm: &GraphModule = gm.getattr("gm")?.downcast()?;
 
-        assert_eq!(gm.extract_buffers()?.len(), 1);
-        assert!(gm.extract_buffers()?.get("buf_buf").is_some());
-        assert_eq!(gm.extract_buffers()?.get("buf_buf").unwrap().len(), 4);
+        assert_eq!(gm.extract_buffers_view(py)?.len(), 1);
+        assert!(gm.extract_buffers_view(py)?.contains_key("buf_buf"));
+        assert_eq!(
+            gm.extract_buffers_view(py)?.get("buf_buf").unwrap().len(),
+            4
+        );
         assert_eq!(gm.count_parameters()?, 1);
-        assert!(gm.get_parameter("param_buf")?.is_some());
-        assert_eq!(gm.get_parameter("param_buf")?.unwrap().len(), 8 * 4);
+        assert!(gm.get_parameter_view(py, "param_buf")?.is_some());
+        assert_eq!(
+            gm.get_parameter_view(py, "param_buf")?.unwrap().len(),
+            8 * 4
+        );
         Ok(())
     })
 }
@@ -272,12 +278,18 @@ fn unittest_extract_buffers_rust() -> PyResult<()> {
         gm.getattr("_parameters")?
             .set_item("param_buf", randn.call1((8,))?)?;
 
-        assert_eq!(gm.extract_buffers()?.len(), 1);
-        assert!(gm.extract_buffers()?.get("buf_buf").is_some());
-        assert_eq!(gm.extract_buffers()?.get("buf_buf").unwrap().len(), 4);
+        assert_eq!(gm.extract_buffers_view(py)?.len(), 1);
+        assert!(gm.extract_buffers_view(py)?.contains_key("buf_buf"));
+        assert_eq!(
+            gm.extract_buffers_view(py)?.get("buf_buf").unwrap().len(),
+            4
+        );
         assert_eq!(gm.count_parameters()?, 1);
-        assert!(gm.get_parameter("param_buf")?.is_some());
-        assert_eq!(gm.get_parameter("param_buf")?.unwrap().len(), 8 * 4);
+        assert!(gm.get_parameter_view(py, "param_buf")?.is_some());
+        assert_eq!(
+            gm.get_parameter_view(py, "param_buf")?.unwrap().len(),
+            8 * 4
+        );
         Ok(())
     })
 }
@@ -310,11 +322,14 @@ gm._parameters["param_buf"] = a.permute([1, 0])
         let gm: &GraphModule = gm.getattr("gm")?.downcast()?;
 
         assert_eq!(gm.count_buffers()?, 1);
-        assert!(gm.get_buffer("buf_buf")?.is_some());
-        assert_eq!(gm.get_buffer("buf_buf")?.unwrap().len(), 9 * 4);
+        assert!(gm.get_buffer_view(py, "buf_buf")?.is_some());
+        assert_eq!(gm.get_buffer_view(py, "buf_buf")?.unwrap().len(), 9 * 4);
         assert_eq!(gm.count_parameters()?, 1);
-        assert!(gm.get_parameter("param_buf")?.is_some());
-        assert_eq!(gm.get_parameter("param_buf")?.unwrap().len(), 12 * 4);
+        assert!(gm.get_parameter_view(py, "param_buf")?.is_some());
+        assert_eq!(
+            gm.get_parameter_view(py, "param_buf")?.unwrap().len(),
+            12 * 4
+        );
         Ok(())
     })
 }
@@ -358,11 +373,14 @@ fn unittest_extract_strided_buffers_rust() -> PyResult<()> {
         )?;
 
         assert_eq!(gm.count_buffers()?, 1);
-        assert!(gm.get_buffer("buf_buf")?.is_some());
-        assert_eq!(gm.get_buffer("buf_buf")?.unwrap().len(), 9 * 4);
+        assert!(gm.get_buffer_view(py, "buf_buf")?.is_some());
+        assert_eq!(gm.get_buffer_view(py, "buf_buf")?.unwrap().len(), 9 * 4);
         assert_eq!(gm.count_parameters()?, 1);
-        assert!(gm.get_parameter("param_buf")?.is_some());
-        assert_eq!(gm.get_parameter("param_buf")?.unwrap().len(), 12 * 4);
+        assert!(gm.get_parameter_view(py, "param_buf")?.is_some());
+        assert_eq!(
+            gm.get_parameter_view(py, "param_buf")?.unwrap().len(),
+            12 * 4
+        );
         Ok(())
     })
 }
@@ -555,27 +573,27 @@ gm._buffers["buf_slice"] = z
 
         assert_eq!(gm.count_parameters()?, 2);
         assert_eq!(
-            gm.get_parameter("param_buf")?,
+            gm.get_parameter_view(py, "param_buf")?.as_deref(),
             Some(
                 [1u8, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0]
                     .as_slice()
             )
         );
         assert_eq!(
-            gm.get_parameter("param_slice")?,
+            gm.get_parameter_view(py, "param_slice")?.as_deref(),
             Some([2u8, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0].as_slice())
         );
 
         assert_eq!(gm.count_buffers()?, 2);
         assert_eq!(
-            gm.get_buffer("buf_buf")?,
+            gm.get_buffer_view(py, "buf_buf")?.as_deref(),
             Some(
                 [1u8, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0]
                     .as_slice()
             )
         );
         assert_eq!(
-            gm.get_buffer("buf_slice")?,
+            gm.get_buffer_view(py, "buf_slice")?.as_deref(),
             Some([2u8, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0].as_slice())
         );
         Ok(())
@@ -634,27 +652,27 @@ fn unittest_extract_tensor_as_slices_rust() -> PyResult<()> {
 
         assert_eq!(gm.count_parameters()?, 2);
         assert_eq!(
-            gm.get_parameter("param_buf")?,
+            gm.get_parameter_view(py, "param_buf")?.as_deref(),
             Some(
                 [1u8, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0]
                     .as_slice()
             )
         );
         assert_eq!(
-            gm.get_parameter("param_slice")?,
+            gm.get_parameter_view(py, "param_slice")?.as_deref(),
             Some([2u8, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0].as_slice())
         );
 
         assert_eq!(gm.count_buffers()?, 2);
         assert_eq!(
-            gm.get_buffer("buf_buf")?,
+            gm.get_buffer_view(py, "buf_buf")?.as_deref(),
             Some(
                 [1u8, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0]
                     .as_slice()
             )
         );
         assert_eq!(
-            gm.get_buffer("buf_slice")?,
+            gm.get_buffer_view(py, "buf_slice")?.as_deref(),
             Some([2u8, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0].as_slice())
         );
         Ok(())
