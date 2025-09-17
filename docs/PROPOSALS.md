@@ -29,8 +29,8 @@ Add README/API docs with examples for:
 - Borrowing buffer/parameter bytes: `get_*_view` and `extract_*_view`
 - Lifetime constraints: the view is tied to the GIL token and should not be stored beyond its scope
 - Read-only semantics: do not mutate the underlying tensor while viewing
-Status: In progress
-- TODO: Update README with examples and safety notes.
+Status: Completed
+- Added README section "Zero-Copy Views: Safety & Usage" documenting GIL-tied lifetime, read-only semantics, strided behavior, and a usage example.
 
 ## 4) Optional typed views
 
