@@ -30,8 +30,8 @@ mod types {
                 "placeholder" => Ok(Self::Placeholder),
                 "get_attr" => Ok(Self::GetAttr),
                 "call_function" => Ok(Self::CallFunction),
-                "call_method" => Ok(Self::CallModule),
-                "call_module" => Ok(Self::CallMethod),
+                "call_method" => Ok(Self::CallMethod),
+                "call_module" => Ok(Self::CallModule),
                 "output" => Ok(Self::Output),
                 _ => Err(PyErr::new::<PyTypeError, _>(format!(
                     "unsupported op type, {op_str}"
@@ -549,3 +549,34 @@ pub use graph::Graph;
 pub use graph_module::{BufferView, GraphModule};
 pub use node::Node;
 pub use types::{Argument, Device, Dtype, MemoryFormat, Op, Target, TensorMeta};
+
+#[cfg(test)]
+mod tests {
+    use super::types::Op;
+    use pyo3::{types::PyString, IntoPy, Python};
+
+    #[test]
+    fn op_frompyobject_maps_correctly() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let s = PyString::new(py, "call_method");
+            let op: Op = s.extract().unwrap();
+            assert_eq!(op, Op::CallMethod);
+
+            let s2 = PyString::new(py, "call_module");
+            let op2: Op = s2.extract().unwrap();
+            assert_eq!(op2, Op::CallModule);
+        });
+    }
+
+    #[test]
+    fn op_intopy_roundtrip_strings() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let s: String = Op::CallMethod.into_py(py).extract(py).unwrap();
+            assert_eq!(s, "call_method");
+            let s2: String = Op::CallModule.into_py(py).extract(py).unwrap();
+            assert_eq!(s2, "call_module");
+        });
+    }
+}
