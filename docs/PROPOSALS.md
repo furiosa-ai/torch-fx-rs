@@ -10,10 +10,17 @@ Provide reference-returning variants that avoid copying `String` names:
 - `Graph::users_nodes(&self, node_name: impl AsRef<str>) -> PyResult<Option<Vec<&Node>>>>`
 
 Rationale: current APIs return `Vec<String>` and copy names. The proposed variants keep Python references and reduce allocation, matching the zero-copy design goal.
+Status: Completed
+- Added `Graph::flatten_node_args_nodes(&self, node_name) -> PyResult<Option<Vec<&Node>>>`
+- Added `Graph::users_nodes(&self, node_name) -> PyResult<Option<Vec<&Node>>>`
+- Added tests in `tests/fx.rs` covering both helpers.
 
 ## 2) Validate `Op` mapping for call_method/call_module
 
 In `src/fx/mod.rs`, confirm the mapping between Python `op` strings and the `Op` enum. Today, `"call_method"` maps to `Op::CallModule` and `"call_module"` maps to `Op::CallMethod`. If this is intentional (compat shimming), document it; otherwise, correct and add tests.
+Status: Completed
+- Fixed mapping in `FromPyObject` (`call_method` → `Op::CallMethod`, `call_module` → `Op::CallModule`).
+- Added unit tests covering both directions.
 
 ## 3) Document safety and usage of TensorView
 
@@ -22,10 +29,13 @@ Add README/API docs with examples for:
 - Borrowing buffer/parameter bytes: `get_*_view` and `extract_*_view`
 - Lifetime constraints: the view is tied to the GIL token and should not be stored beyond its scope
 - Read-only semantics: do not mutate the underlying tensor while viewing
+Status: In progress
+- TODO: Update README with examples and safety notes.
 
 ## 4) Optional typed views
 
 Consider augmenting `TensorView` to carry element size/dtype and logical extents. For strided views, expose both storage range and logical shape/stride (possibly via `TensorMeta`) to let consumers reason about layout without copying.
+Status: Planned
 
 ## 5) Iterator-based collection APIs
 
@@ -35,8 +45,11 @@ Add iterator-returning variants to avoid building `HashMap`s when not needed:
 - `GraphModule::iter_buffers_view<'py>(&self, py: Python<'py>) -> PyResult<impl Iterator<Item=(String, TensorView<'py>)>>`
 
 Rationale: reduce intermediate allocations for large models.
+Status: Completed
+- Added `GraphModule::iter_parameters_view` and `iter_buffers_view` returning `impl Iterator<Item = PyResult<(String, BufferView<'py>)>>` to surface interop errors during iteration while avoiding `HashMap` allocation. Tests cover basic usage.
 
 ## 6) Tests for view APIs
 
 Add dedicated tests for `get_*_view`/`extract_*_view`, verifying length and content, and that views cannot outlive the GIL scope.
-
+Status: Completed
+- Added tests in `tests/fx.rs` covering `extract_*_view` and `get_*_view`, including content and length checks across contiguous, sliced, and strided tensors. GIL lifetime is enforced by types.
